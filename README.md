@@ -9,6 +9,7 @@ A comprehensive Go client library for the [Birdeye API](https://birdeye.so/), pr
 ## Features
 
 ### HTTP Client
+
 - ✅ **Comprehensive API Coverage** - All Birdeye REST API endpoints
 - ✅ **Automatic Rate Limiting** - Built-in rate limiter with configurable limits
 - ✅ **Multi-Chain Support** - Solana, Ethereum, Arbitrum, Avalanche, BSC, Optimism, Polygon, Base, Zksync, Sui
@@ -18,6 +19,7 @@ A comprehensive Go client library for the [Birdeye API](https://birdeye.so/), pr
 - ✅ **Detailed Documentation** - GoDoc style documentation for all methods
 
 ### WebSocket Client
+
 - ✅ **Real-Time Data Streams** - Price updates, transactions, new listings, large trades
 - ✅ **Synchronous Design** - Simple Read/Write methods for full control
 - ✅ **Type-Safe Messages** - Strongly typed message and subscription structures
@@ -32,7 +34,7 @@ go get github.com/dwdwow/birdeye-go
 
 ## Quick Start
 
-### HTTP Client
+### HTTP Client Example
 
 ```go
 package main
@@ -81,7 +83,7 @@ func main() {
 }
 ```
 
-### WebSocket Client
+### WebSocket Client Example
 
 ```go
 package main
