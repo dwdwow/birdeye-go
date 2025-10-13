@@ -955,16 +955,13 @@ func TestRealWsClient(t *testing.T) {
 	}
 	defer client.Close()
 
-	msgType, data, err := client.Read()
+	msgType, _, err := client.Read()
 	if err != nil {
 		t.Fatalf("Read error: %v", err)
 	}
-	if msgType == WsDataWelcome {
-		fmt.Printf("Welcome message: %s\n", string(data))
-	} else {
+	if msgType != WsDataWelcome {
 		t.Fatalf("Expected WELCOME message, got %s", msgType)
 	}
-
 	sub := SubDataPrice{
 		Address:   "So11111111111111111111111111111111111111112",
 		ChartType: WsInterval1m,
@@ -976,17 +973,23 @@ func TestRealWsClient(t *testing.T) {
 		t.Fatalf("Subscribe error: %v", err)
 	}
 
-	for {
-		msgType, data, err := client.Read()
-		if err != nil {
-			t.Fatalf("Read error: %v", err)
-		}
-		if msgType == WsDataPriceData {
-			var priceData WsDataPrice
-			if err := json.Unmarshal(data, &priceData); err != nil {
-				t.Fatalf("Unmarshal error: %v", err)
-			}
-			fmt.Printf("SOL Price: $%.2f at %d\n", priceData.C, priceData.UnixTime)
-		}
+	msgType, data, err := client.Read()
+	if err != nil {
+		t.Fatalf("Read error: %v", err)
 	}
+	if msgType == WsDataPriceData {
+		var priceData WsDataPrice
+		if err := json.Unmarshal(data, &priceData); err != nil {
+			t.Fatalf("Unmarshal error: %v", err)
+		}
+		if priceData.C <= 0 {
+			t.Fatalf("Expected price > 0, got %.2f", priceData.C)
+		}
+		if priceData.UnixTime <= 0 {
+			t.Fatalf("Expected UnixTime > 0, got %d", priceData.UnixTime)
+		}
+	} else {
+		t.Fatalf("Expected PRICE_DATA message, got %s", msgType)
+	}
+
 }

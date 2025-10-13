@@ -2,7 +2,7 @@
 
 A comprehensive Go client library for the [Birdeye API](https://birdeye.so/), providing real-time and historical cryptocurrency data across multiple blockchains.
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.19-blue)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.25-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Test Coverage](https://img.shields.io/badge/coverage-75%25-brightgreen)](https://github.com/dwdwow/birdeye-go)
 
