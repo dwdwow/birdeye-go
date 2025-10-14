@@ -110,3 +110,133 @@ func ParseDefaultTag(tagValue string) (value, description string) {
 	}
 	return parts[0], ""
 }
+
+// ApplyDefaultsAndBuildParams applies default values and builds API parameters map
+// It excludes fields that are not API parameters (like Chains, OnLimitExceeded)
+func ApplyDefaultsAndBuildParams(opts any) (map[string]any, error) {
+	if opts == nil {
+		return make(map[string]any), nil
+	}
+
+	v := reflect.ValueOf(opts)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+
+	if v.Kind() != reflect.Struct {
+		return make(map[string]any), nil
+	}
+
+	params := make(map[string]any)
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+
+		// Skip unexported fields
+		if !field.CanSet() {
+			continue
+		}
+
+		fieldName := fieldType.Name
+
+		// Skip fields that are not API parameters
+		if isNonAPIField(fieldName) {
+			continue
+		}
+
+		// Get the default tag value
+		defaultValue := fieldType.Tag.Get(DefaultTag)
+
+		// Apply default value if field is zero and has default tag
+		if field.IsZero() && defaultValue != "" {
+			if err := setFieldValue(field, defaultValue); err != nil {
+				return nil, err
+			}
+		}
+
+		// Add field to params if it has a non-zero value
+		if !field.IsZero() {
+			paramName := toSnakeCase(fieldName)
+
+			// Handle special cases for API parameters
+			switch field.Kind() {
+			case reflect.Bool:
+				// Convert bool to string for API
+				if field.Bool() {
+					params[paramName] = "true"
+				}
+			default:
+				params[paramName] = field.Interface()
+			}
+		}
+	}
+
+	return params, nil
+}
+
+// isNonAPIField checks if a field should be excluded from API parameters
+func isNonAPIField(fieldName string) bool {
+	nonAPIFields := []string{
+		"Chains",
+		"OnLimitExceeded",
+		"Chain", // for single chain fields
+	}
+
+	for _, field := range nonAPIFields {
+		if fieldName == field {
+			return true
+		}
+	}
+	return false
+}
+
+// toSnakeCase converts CamelCase to snake_case
+func toSnakeCase(s string) string {
+	// Handle special cases first
+	specialCases := map[string]string{
+		"UIAmountMode":        "ui_amount_mode",
+		"CheckLiquidity":      "check_liquidity",
+		"IncludeLiquidity":    "include_liquidity",
+		"AfterTime":           "after_time",
+		"BeforeTime":          "before_time",
+		"BeforeBlockNumber":   "before_block_number",
+		"AfterBlockNumber":    "after_block_number",
+		"TimeFrom":            "time_from",
+		"TimeTo":              "time_to",
+		"SortType":            "sort_type",
+		"SortBy":              "sort_by",
+		"TxType":              "tx_type",
+		"TimeFrame":           "time_frame",
+		"SearchMode":          "search_mode",
+		"SearchBy":            "search_by",
+		"MinLiquidity":        "min_liquidity",
+		"MaxLiquidity":        "max_liquidity",
+		"MinMarketCap":        "min_market_cap",
+		"MaxMarketCap":        "max_market_cap",
+		"MinFDV":              "min_fdv",
+		"MaxFDV":              "max_fdv",
+		"FilterValue":         "filter_value",
+		"VerifyToken":         "verify_token",
+		"PlatformID":          "platform_id",
+		"ScrollID":            "scroll_id",
+		"ChangeType":          "change_type",
+		"CountLimit":          "count_limit",
+		"MemePlatformEnabled": "meme_platform_enabled",
+	}
+
+	if result, exists := specialCases[s]; exists {
+		return result
+	}
+
+	// Default conversion for other fields
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteByte('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
+}

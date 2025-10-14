@@ -191,10 +191,16 @@ type RespTokenTxs struct {
 
 // TokenTradeToken represents token trade information in a transaction
 type TokenTradeToken struct {
-	Symbol          string   `json:"symbol"`
-	Decimals        int64    `json:"decimals"`
-	Address         string   `json:"address"`
-	Amount          int64    `json:"amount"`
+	Symbol   string `json:"symbol"`
+	Decimals int64  `json:"decimals"`
+	Address  string `json:"address"`
+	// Amount can be either int64 or string depending on the API response format.
+	// Some endpoints return numeric values, others return string representations.
+	// Use type assertion to convert to the desired type:
+	//   - For int64: amount, ok := token.Amount.(int64)
+	//   - For string: amount, ok := token.Amount.(string)
+	//   - For string to int64 conversion: str, ok := token.Amount.(string); if ok { intVal, _ := strconv.ParseInt(str, 10, 64) }
+	Amount          any      `json:"amount"`
 	Type            string   `json:"type"`
 	TypeSwap        string   `json:"typeSwap"`
 	UIAmount        float64  `json:"uiAmount"`

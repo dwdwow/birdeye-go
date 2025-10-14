@@ -773,21 +773,14 @@ func (c *HTTPClient) GetTokenPrice(ctx context.Context, address string, opts *To
 	if opts == nil {
 		opts = &TokenPriceOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
-
-	if opts.CheckLiquidity > 0 {
-		params["check_liquidity"] = opts.CheckLiquidity
-	}
-	if opts.IncludeLiquidity {
-		params["include_liquidity"] = "true"
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiPrice, requestOptions{
 		method:          "GET",
@@ -905,18 +898,16 @@ func (c *HTTPClient) GetMultiTokenPrice(ctx context.Context, addresses []string,
 	if opts == nil {
 		opts = &MultiTokenPriceOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"list_address":   addresses,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["list_address"] = addresses
 
-	if opts.CheckLiquidity > 0 {
-		params["check_liquidity"] = opts.CheckLiquidity
-	}
+	// Handle special cases
 	if opts.IncludeLiquidity {
 		params["include_liquidity"] = "true"
 	}
@@ -1049,18 +1040,14 @@ func (c *HTTPClient) GetTokenTxs(ctx context.Context, address string, opts *Toke
 	if opts == nil {
 		opts = &TokenTxsOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"tx_type":        opts.TxType,
-		"sort_type":      opts.SortType,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiTxsToken, requestOptions{
 		method:          "GET",
@@ -1161,7 +1148,8 @@ func (c *HTTPClient) GetTokenOHLCV(ctx context.Context, address string, interval
 	if opts == nil {
 		opts = &TokenOHLCVOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -1172,14 +1160,11 @@ func (c *HTTPClient) GetTokenOHLCV(ctx context.Context, address string, interval
 		return nil, errors.New("time_to must be between 0 and 10000000000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"type":           intervalType,
-		"time_from":      timeFrom,
-		"time_to":        timeTo,
-		"currency":       opts.Currency,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
+	params["type"] = intervalType
+	params["time_from"] = timeFrom
+	params["time_to"] = timeTo
 
 	result, err := c.request(ctx, EndpointDefiOHLCV, requestOptions{
 		method:          "GET",
@@ -1387,14 +1372,13 @@ func (c *HTTPClient) GetTokenMarketData(ctx context.Context, address string, opt
 	if opts == nil {
 		opts = &TokenMarketDataOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiV3TokenMarketData, requestOptions{
 		method:          "GET",
@@ -1445,14 +1429,13 @@ func (c *HTTPClient) GetMultiTokenMarketData(ctx context.Context, addresses []st
 	if opts == nil {
 		opts = &TokenMarketDataOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"list_address":   addresses,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["list_address"] = addresses
 
 	result, err := c.request(ctx, EndpointDefiV3TokenMarketDataMultiple, requestOptions{
 		method:          "GET",
@@ -1529,14 +1512,13 @@ func (c *HTTPClient) GetTokenTradeData(ctx context.Context, address string, opts
 	if opts == nil {
 		opts = &TokenTradeDataOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	if len(opts.Frames) > 0 {
 		params["frames"] = opts.Frames
@@ -1587,14 +1569,13 @@ func (c *HTTPClient) GetMultiTokenTradeData(ctx context.Context, addresses []str
 	if opts == nil {
 		opts = &TokenTradeDataOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"list_address":   addresses,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["list_address"] = addresses
 
 	if len(opts.Frames) > 0 {
 		params["frames"] = opts.Frames
@@ -1774,7 +1755,8 @@ func (c *HTTPClient) GetTokenHolders(ctx context.Context, address string, opts *
 	if opts == nil {
 		opts = &TokenHoldersOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -1788,12 +1770,8 @@ func (c *HTTPClient) GetTokenHolders(ctx context.Context, address string, opts *
 		return nil, errors.New("offset + limit must not exceed 10000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiV3TokenHolder, requestOptions{
 		method:          "GET",
@@ -1889,14 +1867,13 @@ func (c *HTTPClient) GetWalletPortfolio(ctx context.Context, wallet string, opts
 	if opts == nil {
 		opts = &WalletPortfolioOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"wallet":         wallet,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["wallet"] = wallet
 
 	result, err := c.request(ctx, EndpointV1WalletTokenList, requestOptions{
 		method:          "GET",
@@ -1998,7 +1975,8 @@ func (c *HTTPClient) GetWalletTxs(ctx context.Context, wallet string, opts *Wall
 	if opts == nil {
 		opts = &WalletTxsOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -2006,15 +1984,8 @@ func (c *HTTPClient) GetWalletTxs(ctx context.Context, wallet string, opts *Wall
 		return nil, errors.New("limit must be between 1 and 100")
 	}
 
-	params := map[string]any{
-		"wallet":         wallet,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
-
-	if opts.Before != "" {
-		params["before"] = opts.Before
-	}
+	// Add required parameters
+	params["wallet"] = wallet
 
 	result, err := c.request(ctx, EndpointV1WalletTxList, requestOptions{
 		method:          "GET",
@@ -2096,7 +2067,8 @@ func (c *HTTPClient) GetWalletNetWorth(ctx context.Context, wallet string, opts 
 	if opts == nil {
 		opts = &WalletNetWorthOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -2107,13 +2079,8 @@ func (c *HTTPClient) GetWalletNetWorth(ctx context.Context, wallet string, opts 
 		return nil, errors.New("offset must be between 0 and 10000")
 	}
 
-	params := map[string]any{
-		"wallet":    wallet,
-		"sort_by":   opts.SortBy,
-		"sort_type": opts.SortType,
-		"limit":     opts.Limit,
-		"offset":    opts.Offset,
-	}
+	// Add required parameters
+	params["wallet"] = wallet
 
 	if opts.FilterValue > 0 {
 		params["filter_value"] = opts.FilterValue
@@ -2209,21 +2176,13 @@ func (c *HTTPClient) Search(ctx context.Context, keyword string, opts *SearchOpt
 	if opts == nil {
 		opts = &SearchOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"keyword":        keyword,
-		"target":         opts.Target,
-		"search_mode":    opts.SearchMode,
-		"search_by":      opts.SearchBy,
-		"sort_by":        opts.SortBy,
-		"sort_type":      opts.SortType,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["keyword"] = keyword
 
 	if opts.VerifyToken {
 		params["verify_token"] = "true"
@@ -2332,18 +2291,13 @@ func (c *HTTPClient) GetPairTxs(ctx context.Context, address string, opts *PairT
 	if opts == nil {
 		opts = &PairTxsOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"tx_type":        opts.TxType,
-		"sort_type":      opts.SortType,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiTxsPair, requestOptions{
 		method:          "GET",
@@ -2476,18 +2430,13 @@ func (c *HTTPClient) GetTokenTxsByTime(ctx context.Context, address string, opts
 	if opts == nil {
 		opts = &TokenTxsByTimeOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"tx_type":        opts.TxType,
-		"sort_type":      opts.SortType,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	if opts.AfterTime > 0 {
 		params["after_time"] = opts.AfterTime
@@ -2588,18 +2537,13 @@ func (c *HTTPClient) GetPairTxsByTime(ctx context.Context, address string, opts 
 	if opts == nil {
 		opts = &PairTxsByTimeOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"tx_type":        opts.TxType,
-		"sort_type":      opts.SortType,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	if opts.AfterTime > 0 {
 		params["after_time"] = opts.AfterTime
@@ -2717,7 +2661,8 @@ func (c *HTTPClient) GetTokenTxsV3(ctx context.Context, address string, opts *To
 	if opts == nil {
 		opts = &TokenTxsV3Options{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -2728,15 +2673,8 @@ func (c *HTTPClient) GetTokenTxsV3(ctx context.Context, address string, opts *To
 		return nil, errors.New("limit must be <= 100")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"sort_by":        opts.SortBy,
-		"sort_type":      opts.SortType,
-		"tx_type":        opts.TxType,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	if opts.Source != "" {
 		params["source"] = opts.Source
@@ -2849,7 +2787,8 @@ func (c *HTTPClient) GetPairOHLCV(ctx context.Context, address, intervalType str
 	if opts == nil {
 		opts = &PairOHLCVOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -2860,13 +2799,11 @@ func (c *HTTPClient) GetPairOHLCV(ctx context.Context, address, intervalType str
 		return nil, errors.New("time_to must be between 0 and 10000000000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"type":           intervalType,
-		"time_from":      timeFrom,
-		"time_to":        timeTo,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
+	params["type"] = intervalType
+	params["time_from"] = timeFrom
+	params["time_to"] = timeTo
 
 	result, err := c.request(ctx, EndpointDefiOHLCVPair, requestOptions{
 		method:          "GET",
@@ -2958,14 +2895,13 @@ func (c *HTTPClient) GetPairOverview(ctx context.Context, address string, opts *
 	if opts == nil {
 		opts = &PairOverviewOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiV3PairOverviewSingle, requestOptions{
 		method:          "GET",
@@ -3028,14 +2964,13 @@ func (c *HTTPClient) GetPairsOverview(ctx context.Context, addresses []string, o
 	if opts == nil {
 		opts = &PairOverviewOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"list_address":   addresses,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["list_address"] = addresses
 
 	result, err := c.request(ctx, EndpointDefiV3PairOverviewMultiple, requestOptions{
 		method:          "GET",
@@ -3129,7 +3064,8 @@ func (c *HTTPClient) GetTokenListV3(ctx context.Context, opts *TokenListV3Option
 	if opts == nil {
 		opts = &TokenListV3Options{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -3140,17 +3076,7 @@ func (c *HTTPClient) GetTokenListV3(ctx context.Context, opts *TokenListV3Option
 		return nil, errors.New("offset + limit must not exceed 10000")
 	}
 
-	params := map[string]any{
-		"sort_by":        opts.SortBy,
-		"sort_type":      opts.SortType,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
-
-	if opts.MinLiquidity > 0 {
-		params["min_liquidity"] = opts.MinLiquidity
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 	if opts.MaxLiquidity > 0 {
 		params["max_liquidity"] = opts.MaxLiquidity
 	}
@@ -3247,14 +3173,13 @@ func (c *HTTPClient) GetTokenOverview(ctx context.Context, address string, opts 
 	if opts == nil {
 		opts = &TokenOverviewOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	if len(opts.Frames) > 0 {
 		params["frames"] = opts.Frames
@@ -3433,7 +3358,8 @@ func (c *HTTPClient) GetTokenTrendingList(ctx context.Context, opts *TrendingLis
 	if opts == nil {
 		opts = &TrendingListOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -3441,13 +3367,7 @@ func (c *HTTPClient) GetTokenTrendingList(ctx context.Context, opts *TrendingLis
 		return nil, errors.New("limit must be between 1 and 20")
 	}
 
-	params := map[string]any{
-		"sort_by":        opts.SortBy,
-		"sort_type":      opts.SortType,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	result, err := c.request(ctx, EndpointDefiTokenTrending, requestOptions{
 		method:          "GET",
@@ -3519,7 +3439,8 @@ func (c *HTTPClient) GetNewListing(ctx context.Context, opts *NewListingOptions)
 	if opts == nil {
 		opts = &NewListingOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -3527,14 +3448,7 @@ func (c *HTTPClient) GetNewListing(ctx context.Context, opts *NewListingOptions)
 		return nil, errors.New("limit must be between 1 and 20")
 	}
 
-	params := map[string]any{
-		"limit":                 opts.Limit,
-		"meme_platform_enabled": opts.MemePlatformEnabled,
-	}
-
-	if opts.TimeTo > 0 {
-		params["time_to"] = opts.TimeTo
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	result, err := c.request(ctx, EndpointDefiV2TokensNewListing, requestOptions{
 		method:          "GET",
@@ -3626,16 +3540,13 @@ func (c *HTTPClient) GetWalletTrades(ctx context.Context, walletAddress string, 
 	if opts == nil {
 		opts = &WalletTradesOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        walletAddress,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = walletAddress
 
 	if opts.BeforeTime > 0 {
 		params["before_time"] = opts.BeforeTime
@@ -3713,15 +3624,14 @@ func (c *HTTPClient) GetWalletTokenBalance(ctx context.Context, wallet, tokenAdd
 	if opts == nil {
 		opts = &WalletTokenBalanceOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"wallet":         wallet,
-		"token_address":  tokenAddress,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["wallet"] = wallet
+	params["token_address"] = tokenAddress
 
 	result, err := c.request(ctx, EndpointV1WalletTokenBalance, requestOptions{
 		method:          "GET",
@@ -3809,7 +3719,8 @@ func (c *HTTPClient) GetWalletNetWorthHistories(ctx context.Context, wallet stri
 	if opts == nil {
 		opts = &WalletNetWorthHistoriesOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -3817,13 +3728,8 @@ func (c *HTTPClient) GetWalletNetWorthHistories(ctx context.Context, wallet stri
 		return nil, errors.New("count must be between 1 and 30")
 	}
 
-	params := map[string]any{
-		"wallet":    wallet,
-		"count":     opts.Count,
-		"direction": opts.Direction,
-		"type":      opts.Type,
-		"sort_type": opts.SortType,
-	}
+	// Add required parameters
+	params["wallet"] = wallet
 
 	if opts.Time != "" {
 		params["time"] = opts.Time
@@ -3956,7 +3862,8 @@ func (c *HTTPClient) GetTokenTopTraders(ctx context.Context, address string, opt
 	if opts == nil {
 		opts = &TokenTopTradersOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -3970,15 +3877,8 @@ func (c *HTTPClient) GetTokenTopTraders(ctx context.Context, address string, opt
 		return nil, errors.New("offset + limit must not exceed 10000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"time_frame":     opts.TimeFrame,
-		"sort_type":      opts.SortType,
-		"sort_by":        opts.SortBy,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiV2TokensTopTraders, requestOptions{
 		method:          "GET",
@@ -4060,7 +3960,8 @@ func (c *HTTPClient) GetTokenAllMarketList(ctx context.Context, address string, 
 	if opts == nil {
 		opts = &TokenAllMarketListOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -4068,14 +3969,8 @@ func (c *HTTPClient) GetTokenAllMarketList(ctx context.Context, address string, 
 		return nil, errors.New("limit must be between 1 and 20")
 	}
 
-	params := map[string]any{
-		"address":    address,
-		"time_frame": opts.TimeFrame,
-		"sort_type":  opts.SortType,
-		"sort_by":    opts.SortBy,
-		"offset":     opts.Offset,
-		"limit":      opts.Limit,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiV2Markets, requestOptions{
 		method:          "GET",
@@ -4159,17 +4054,12 @@ func (c *HTTPClient) GetGainersLosers(ctx context.Context, opts *GainersLosersOp
 	if opts == nil {
 		opts = &GainersLosersOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"type":      opts.Type,
-		"sort_by":   opts.SortBy,
-		"sort_type": opts.SortType,
-		"offset":    opts.Offset,
-		"limit":     opts.Limit,
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	result, err := c.request(ctx, EndpointTraderGainersLosers, requestOptions{
 		method:          "GET",
@@ -4245,15 +4135,13 @@ func (c *HTTPClient) GetTokenAllTimeTrades(ctx context.Context, address string, 
 	if opts == nil {
 		opts = &TokenAllTimeTradesOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"time_frame":     opts.TimeFrame,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiV3AllTimeTradesSingle, requestOptions{
 		method:          "GET",
@@ -4326,19 +4214,19 @@ func (c *HTTPClient) GetMultiTokenAllTimeTrades(ctx context.Context, addresses [
 	if opts == nil {
 		opts = &TokenAllTimeTradesOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
+
+	// Add required parameters
+	params["list_address"] = addresses
 
 	result, err := c.request(ctx, EndpointDefiV3AllTimeTradesMultiple, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
 		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
-		paramsOrBody: map[string]any{
-			"list_address":   addresses,
-			"time_frame":     opts.TimeFrame,
-			"ui_amount_mode": opts.UIAmountMode,
-		},
+		paramsOrBody:    params,
 	})
 	if err != nil {
 		return nil, err
@@ -4407,15 +4295,13 @@ func (c *HTTPClient) GetTokenPriceVolume(ctx context.Context, address string, op
 	if opts == nil {
 		opts = &TokenPriceVolumeOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"type":           opts.Type,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	result, err := c.request(ctx, EndpointDefiPriceVolumeSingle, requestOptions{
 		method:          "GET",
@@ -4475,19 +4361,19 @@ func (c *HTTPClient) GetMultiTokenPriceVolume(ctx context.Context, addresses []s
 	if opts == nil {
 		opts = &TokenPriceVolumeOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
+
+	// Add required parameters
+	params["list_address"] = addresses
 
 	result, err := c.request(ctx, EndpointDefiPriceVolumeMulti, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
 		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
-		paramsOrBody: map[string]any{
-			"list_address":   addresses,
-			"type":           opts.Type,
-			"ui_amount_mode": opts.UIAmountMode,
-		},
+		paramsOrBody:    params,
 	})
 	if err != nil {
 		return nil, err
@@ -4561,7 +4447,8 @@ func (c *HTTPClient) GetTokenPriceHistories(ctx context.Context, address, addres
 	if opts == nil {
 		opts = &TokenPriceHistoriesOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -4572,14 +4459,12 @@ func (c *HTTPClient) GetTokenPriceHistories(ctx context.Context, address, addres
 		return nil, errors.New("time_to must be between 0 and 10000000000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"address_type":   addressType,
-		"type":           intervalType,
-		"time_from":      timeFrom,
-		"time_to":        timeTo,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
+	params["address_type"] = addressType
+	params["type"] = intervalType
+	params["time_from"] = timeFrom
+	params["time_to"] = timeTo
 
 	result, err := c.request(ctx, EndpointDefiHistoryPrice, requestOptions{
 		method:          "GET",
@@ -4640,7 +4525,8 @@ func (c *HTTPClient) GetTokenPriceHistoryByTime(ctx context.Context, address str
 	if opts == nil {
 		opts = &TokenPriceHistoriesOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -4648,11 +4534,9 @@ func (c *HTTPClient) GetTokenPriceHistoryByTime(ctx context.Context, address str
 		return nil, errors.New("unixtime must be between 0 and 10000000000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"unixtime":       unixTime,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
+	params["unixtime"] = unixTime
 
 	result, err := c.request(ctx, EndpointDefiHistoricalPriceUnix, requestOptions{
 		method:          "GET",
@@ -4724,7 +4608,8 @@ func (c *HTTPClient) GetTokenOHLCVV3(ctx context.Context, address, intervalType 
 	if opts == nil {
 		opts = &TokenOHLCVV3Options{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -4738,18 +4623,16 @@ func (c *HTTPClient) GetTokenOHLCVV3(ctx context.Context, address, intervalType 
 		return nil, errors.New("count_limit must be between 0 and 5000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"type":           intervalType,
-		"time_from":      timeFrom,
-		"time_to":        timeTo,
-		"currency":       opts.Currency,
-		"ui_amount_mode": opts.UIAmountMode,
-		"mode":           opts.Mode,
-		"count_limit":    opts.CountLimit,
-		"padding":        fmt.Sprintf("%t", opts.Padding),
-		"outlier":        fmt.Sprintf("%t", opts.Outlier),
-	}
+	// Add required parameters
+	params["address"] = address
+	params["type"] = intervalType
+	params["time_from"] = timeFrom
+	params["time_to"] = timeTo
+	params["currency"] = opts.Currency
+	params["mode"] = opts.Mode
+	params["count_limit"] = opts.CountLimit
+	params["padding"] = fmt.Sprintf("%t", opts.Padding)
+	params["outlier"] = fmt.Sprintf("%t", opts.Outlier)
 
 	result, err := c.request(ctx, EndpointDefiV3OHLCV, requestOptions{
 		method:          "GET",
@@ -4796,7 +4679,8 @@ func (c *HTTPClient) GetPairOHLCVV3(ctx context.Context, address, intervalType s
 	if opts == nil {
 		opts = &TokenOHLCVV3Options{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -4810,18 +4694,16 @@ func (c *HTTPClient) GetPairOHLCVV3(ctx context.Context, address, intervalType s
 		return nil, errors.New("count_limit must be between 0 and 5000")
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"type":           intervalType,
-		"time_from":      timeFrom,
-		"time_to":        timeTo,
-		"currency":       opts.Currency,
-		"ui_amount_mode": opts.UIAmountMode,
-		"mode":           opts.Mode,
-		"count_limit":    opts.CountLimit,
-		"padding":        fmt.Sprintf("%t", opts.Padding),
-		"outlier":        fmt.Sprintf("%t", opts.Outlier),
-	}
+	// Add required parameters
+	params["address"] = address
+	params["type"] = intervalType
+	params["time_from"] = timeFrom
+	params["time_to"] = timeTo
+	params["currency"] = opts.Currency
+	params["mode"] = opts.Mode
+	params["count_limit"] = opts.CountLimit
+	params["padding"] = fmt.Sprintf("%t", opts.Padding)
+	params["outlier"] = fmt.Sprintf("%t", opts.Outlier)
 
 	result, err := c.request(ctx, EndpointDefiV3OHLCVPair, requestOptions{
 		method:          "GET",
@@ -4886,15 +4768,14 @@ func (c *HTTPClient) GetTokenPriceStats(ctx context.Context, address string, tim
 	if opts == nil {
 		opts = &TokenPriceStatsOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":        address,
-		"list_timeframe": timeframes,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["address"] = address
+	params["list_timeframe"] = timeframes
 
 	result, err := c.request(ctx, EndpointDefiV3PriceStatsSingle, requestOptions{
 		method:          "GET",
@@ -4948,20 +4829,21 @@ func (c *HTTPClient) GetMultiTokenPriceStats(ctx context.Context, addresses, tim
 	if opts == nil {
 		opts = &TokenPriceStatsOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	// Build URL with query params
-	endpoint := EndpointDefiV3PriceStatsMultiple + "?list_timeframe=" + strings.Join(timeframes, ",") + "&ui_amount_mode=" + opts.UIAmountMode
+	// Add required parameters - handle different formats for different parameters
+	// params["list_address"] = strings.Join(addresses, ",")
 
-	result, err := c.request(ctx, endpoint, requestOptions{
+	path := EndpointDefiV3PriceStatsMultiple + "?" + "&list_timeframe=" + strings.Join(timeframes, ",") + "&ui_amount_mode=" + params["ui_amount_mode"].(string)
+
+	result, err := c.request(ctx, path, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
 		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
-		paramsOrBody: map[string]any{
-			"list_address": addresses,
-		},
+		paramsOrBody:    map[string]any{"list_address": strings.Join(addresses, ",")},
 	})
 	if err != nil {
 		return nil, err
@@ -5027,18 +4909,13 @@ func (c *HTTPClient) GetTokenMintBurnTxs(ctx context.Context, address string, op
 	if opts == nil {
 		opts = &TokenMintBurnTxsOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"address":   address,
-		"sort_by":   opts.SortBy,
-		"sort_type": opts.SortType,
-		"type":      opts.Type,
-		"offset":    opts.Offset,
-		"limit":     opts.Limit,
-	}
+	// Add required parameters
+	params["address"] = address
 
 	if opts.AfterTime > 0 {
 		params["after_time"] = opts.AfterTime
@@ -5220,17 +5097,12 @@ func (c *HTTPClient) GetMemeList(ctx context.Context, opts *MemeListOptions) (*R
 	if opts == nil {
 		opts = &MemeListOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"sort_by":   opts.SortBy,
-		"sort_type": opts.SortType,
-		"source":    opts.Source,
-		"offset":    opts.Offset,
-		"limit":     opts.Limit,
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	if opts.Creator != "" {
 		params["creator"] = opts.Creator
@@ -5571,7 +5443,8 @@ func (c *HTTPClient) GetWalletNetWorthDetails(ctx context.Context, wallet string
 	if opts == nil {
 		opts = &WalletNetWorthDetailsOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -5582,13 +5455,8 @@ func (c *HTTPClient) GetWalletNetWorthDetails(ctx context.Context, wallet string
 		return nil, errors.New("offset must be between 0 and 10000")
 	}
 
-	params := map[string]any{
-		"wallet":    wallet,
-		"type":      opts.Type,
-		"sort_type": opts.SortType,
-		"limit":     opts.Limit,
-		"offset":    opts.Offset,
-	}
+	// Add required parameters
+	params["wallet"] = wallet
 
 	if opts.Time != "" {
 		params["time"] = opts.Time
@@ -5651,22 +5519,21 @@ func (c *HTTPClient) GetTokenHolderBatch(ctx context.Context, tokenAddress strin
 	if opts == nil {
 		opts = &TokenHolderBatchOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	// Build URL with query params
-	endpoint := EndpointTokenV1HolderBatch + "?ui_amount_mode=" + opts.UIAmountMode
+	// Add required parameters
+	params["token_address"] = tokenAddress
+	params["wallets"] = wallets
 
-	result, err := c.request(ctx, endpoint, requestOptions{
+	result, err := c.request(ctx, EndpointTokenV1HolderBatch, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
 		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
-		paramsOrBody: map[string]any{
-			"token_address": tokenAddress,
-			"wallets":       wallets,
-		},
-		paramsUseArray: true,
+		paramsOrBody:    params,
+		paramsUseArray:  true,
 	})
 	if err != nil {
 		return nil, err
@@ -5727,7 +5594,8 @@ func (c *HTTPClient) GetTokenListV1(ctx context.Context, opts *TokenListV1Option
 	if opts == nil {
 		opts = &TokenListV1Options{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -5735,14 +5603,7 @@ func (c *HTTPClient) GetTokenListV1(ctx context.Context, opts *TokenListV1Option
 		return nil, errors.New("limit must be between 1 and 50")
 	}
 
-	params := map[string]any{
-		"sort_by":        opts.SortBy,
-		"sort_type":      opts.SortType,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"min_liquidity":  opts.MinLiquidity,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	if opts.MaxLiquidity > 0 {
 		params["max_liquidity"] = opts.MaxLiquidity
@@ -5826,7 +5687,8 @@ func (c *HTTPClient) GetAllTxs(ctx context.Context, opts *AllTxsV3Options) (*Res
 	if opts == nil {
 		opts = &AllTxsV3Options{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -5837,14 +5699,7 @@ func (c *HTTPClient) GetAllTxs(ctx context.Context, opts *AllTxsV3Options) (*Res
 		return nil, errors.New("limit must be <= 100")
 	}
 
-	params := map[string]any{
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"sort_by":        opts.SortBy,
-		"sort_type":      opts.SortType,
-		"tx_type":        opts.TxType,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	if opts.Source != "" {
 		params["source"] = opts.Source
@@ -5934,7 +5789,8 @@ func (c *HTTPClient) GetRecentTxs(ctx context.Context, opts *RecentTxsV3Options)
 	if opts == nil {
 		opts = &RecentTxsV3Options{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -5948,12 +5804,7 @@ func (c *HTTPClient) GetRecentTxs(ctx context.Context, opts *RecentTxsV3Options)
 		return nil, errors.New("offset + limit cannot exceed 10000")
 	}
 
-	params := map[string]any{
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"tx_type":        opts.TxType,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	if opts.Owner != "" {
 		params["owner"] = opts.Owner
@@ -6030,7 +5881,8 @@ func (c *HTTPClient) GetOHLCVBaseQuote(ctx context.Context, baseAddress, quoteAd
 	if opts == nil {
 		opts = &OHLCVBaseQuoteOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -6041,14 +5893,12 @@ func (c *HTTPClient) GetOHLCVBaseQuote(ctx context.Context, baseAddress, quoteAd
 		return nil, errors.New("time_to must be between 0 and 10000000000")
 	}
 
-	params := map[string]any{
-		"base_address":   baseAddress,
-		"quote_address":  quoteAddress,
-		"type":           intervalType,
-		"time_from":      timeFrom,
-		"time_to":        timeTo,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["base_address"] = baseAddress
+	params["quote_address"] = quoteAddress
+	params["type"] = intervalType
+	params["time_from"] = timeFrom
+	params["time_to"] = timeTo
 
 	result, err := c.request(ctx, EndpointDefiOHLCVBaseQuote, requestOptions{
 		method:          "GET",
@@ -6158,7 +6008,8 @@ func (c *HTTPClient) GetTokenListV3Scroll(ctx context.Context, opts *TokenListV3
 	if opts == nil {
 		opts = &TokenListV3ScrollOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
@@ -6166,12 +6017,7 @@ func (c *HTTPClient) GetTokenListV3Scroll(ctx context.Context, opts *TokenListV3
 		return nil, errors.New("limit must be between 1 and 5000")
 	}
 
-	params := map[string]any{
-		"sort_by":        opts.SortBy,
-		"sort_type":      opts.SortType,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// No additional parameters needed - all handled by ApplyDefaultsAndBuildParams
 
 	if opts.ScrollID != "" {
 		params["scroll_id"] = opts.ScrollID
@@ -6294,17 +6140,14 @@ func (c *HTTPClient) GetWalletBalanceChanges(ctx context.Context, wallet, tokenA
 	if opts == nil {
 		opts = &WalletBalanceChangesOptions{}
 	}
-	if err := ApplyDefaults(opts); err != nil {
+	params, err := ApplyDefaultsAndBuildParams(opts)
+	if err != nil {
 		return nil, fmt.Errorf("failed to apply defaults: %w", err)
 	}
 
-	params := map[string]any{
-		"wallet":         wallet,
-		"token_address":  tokenAddress,
-		"offset":         opts.Offset,
-		"limit":          opts.Limit,
-		"ui_amount_mode": opts.UIAmountMode,
-	}
+	// Add required parameters
+	params["wallet"] = wallet
+	params["token_address"] = tokenAddress
 
 	if opts.TimeFrom > 0 {
 		params["time_from"] = opts.TimeFrom
