@@ -403,11 +403,11 @@ func (c *HTTPClient) getHeaders(chains []Chain) http.Header {
 
 // requestOptions holds options for making API requests
 type requestOptions struct {
-	method          string
+	method          string `default:"GET"`
 	chains          []Chain
-	onLimitExceeded *RateLimitBehavior
-	paramsUseArray  bool
-	respJustItems   bool
+	onLimitExceeded RateLimitBehavior
+	paramsUseArray  bool `default:"false"`
+	respJustItems   bool `default:"false"`
 	paramsOrBody    map[string]any
 }
 
@@ -418,8 +418,8 @@ func (c *HTTPClient) request(ctx context.Context, endpoint string, opts requestO
 
 	// Acquire rate limit token
 	behavior := c.onLimitExceeded
-	if opts.onLimitExceeded != nil {
-		behavior = *opts.onLimitExceeded
+	if opts.onLimitExceeded != "" {
+		behavior = opts.onLimitExceeded
 	}
 
 	var acquired bool
@@ -427,9 +427,9 @@ func (c *HTTPClient) request(ctx context.Context, endpoint string, opts requestO
 
 	switch v := limiter.(type) {
 	case *RateLimiter:
-		acquired, err = v.Acquire(ctx, 1, opts.onLimitExceeded)
+		acquired, err = v.Acquire(ctx, 1, &opts.onLimitExceeded)
 	case *MultiRateLimiter:
-		acquired, err = v.Acquire(ctx, 1, opts.onLimitExceeded)
+		acquired, err = v.Acquire(ctx, 1, &opts.onLimitExceeded)
 	default:
 		return nil, errors.New("invalid limiter type")
 	}
@@ -493,6 +493,8 @@ func (c *HTTPClient) request(ctx context.Context, endpoint string, opts requestO
 		if opts.method == "POST" {
 			req.Header.Set("Content-Type", "application/json")
 		}
+
+		fmt.Printf("reqURL: %s\n", req.URL)
 
 		// Make request
 		resp, err = c.httpClient.Do(req)
@@ -574,34 +576,6 @@ func (c *HTTPClient) request(ctx context.Context, endpoint string, opts requestO
 // ============================================================================
 // Helper Functions for Building Parameters
 // ============================================================================
-
-// addOptionalInt64 adds an int64 parameter if not nil
-func addOptionalInt64(params map[string]any, key string, value *int64) {
-	if value != nil {
-		params[key] = *value
-	}
-}
-
-// addOptionalFloat64 adds a float64 parameter if not nil
-func addOptionalFloat64(params map[string]any, key string, value *float64) {
-	if value != nil {
-		params[key] = *value
-	}
-}
-
-// addOptionalBool adds a bool parameter if not nil
-func addOptionalBool(params map[string]any, key string, value *bool) {
-	if value != nil {
-		params[key] = *value
-	}
-}
-
-// addOptionalString adds a string parameter if not nil
-func addOptionalString(params map[string]any, key string, value *string) {
-	if value != nil && *value != "" {
-		params[key] = *value
-	}
-}
 
 // ============================================================================
 // API Methods - Network Support
@@ -712,11 +686,11 @@ type TokenPriceOptions struct {
 	// CheckLiquidity is the minimum liquidity threshold in USD.
 	// Tokens below this threshold may not be included in results.
 	// Optional, default: 100
-	CheckLiquidity *int64
+	CheckLiquidity int64 `default:"100"`
 
 	// IncludeLiquidity determines whether to include liquidity information in the response.
 	// Optional, default: true
-	IncludeLiquidity *bool
+	IncludeLiquidity bool `default:"true"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -724,7 +698,7 @@ type TokenPriceOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -734,22 +708,7 @@ type TokenPriceOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values for TokenPriceOptions
-func (o *TokenPriceOptions) SetDefaults() {
-	if o.CheckLiquidity == nil {
-		checkLiq := int64(100)
-		o.CheckLiquidity = &checkLiq
-	}
-	if o.IncludeLiquidity == nil {
-		includeLiq := true
-		o.IncludeLiquidity = &includeLiq
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenPrice retrieves the current price of a token with optional liquidity filtering.
@@ -814,22 +773,26 @@ func (c *HTTPClient) GetTokenPrice(ctx context.Context, address string, opts *To
 	if opts == nil {
 		opts = &TokenPriceOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalInt64(params, "check_liquidity", opts.CheckLiquidity)
-	if opts.IncludeLiquidity != nil && *opts.IncludeLiquidity {
+	if opts.CheckLiquidity > 0 {
+		params["check_liquidity"] = opts.CheckLiquidity
+	}
+	if opts.IncludeLiquidity {
 		params["include_liquidity"] = "true"
 	}
 
 	result, err := c.request(ctx, EndpointDefiPrice, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -851,11 +814,11 @@ type MultiTokenPriceOptions struct {
 	// CheckLiquidity is the minimum liquidity threshold in USD.
 	// Tokens below this threshold may not be included in results.
 	// Optional, default: 100
-	CheckLiquidity *int64
+	CheckLiquidity int64 `default:"100"`
 
 	// IncludeLiquidity determines whether to include liquidity information in the response.
 	// Optional, default: true
-	IncludeLiquidity *bool
+	IncludeLiquidity bool `default:"true"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -863,7 +826,7 @@ type MultiTokenPriceOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -873,22 +836,7 @@ type MultiTokenPriceOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *MultiTokenPriceOptions) SetDefaults() {
-	if o.CheckLiquidity == nil {
-		checkLiq := int64(100)
-		o.CheckLiquidity = &checkLiq
-	}
-	if o.IncludeLiquidity == nil {
-		includeLiq := true
-		o.IncludeLiquidity = &includeLiq
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetMultiTokenPrice retrieves the current price of multiple tokens in a single request.
@@ -957,22 +905,26 @@ func (c *HTTPClient) GetMultiTokenPrice(ctx context.Context, addresses []string,
 	if opts == nil {
 		opts = &MultiTokenPriceOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"list_address":   addresses,
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalInt64(params, "check_liquidity", opts.CheckLiquidity)
-	if opts.IncludeLiquidity != nil && *opts.IncludeLiquidity {
+	if opts.CheckLiquidity > 0 {
+		params["check_liquidity"] = opts.CheckLiquidity
+	}
+	if opts.IncludeLiquidity {
 		params["include_liquidity"] = "true"
 	}
 
 	result, err := c.request(ctx, EndpointDefiMultiPrice, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -997,11 +949,11 @@ func (c *HTTPClient) GetMultiTokenPrice(ctx context.Context, addresses []string,
 type TokenTxsOptions struct {
 	// Offset is the number of transactions to skip for pagination.
 	// Optional, default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of transactions to return (1-50).
 	// Optional, default: 50, max: 50
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// TxType specifies the type of transactions to retrieve.
 	// Options:
@@ -1010,14 +962,14 @@ type TokenTxsOptions struct {
 	//   - "remove": Only liquidity remove transactions
 	//   - "all": All transaction types
 	// Optional, default: "swap"
-	TxType string
+	TxType string `default:"swap"`
 
 	// SortType specifies the sort order by timestamp.
 	// Options:
 	//   - "desc": Newest first
 	//   - "asc": Oldest first
 	// Optional, default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -1025,7 +977,7 @@ type TokenTxsOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -1035,23 +987,7 @@ type TokenTxsOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenTxsOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 50
-	}
-	if o.TxType == "" {
-		o.TxType = "swap"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenTxs retrieves transaction history for a specific token.
@@ -1113,7 +1049,9 @@ func (c *HTTPClient) GetTokenTxs(ctx context.Context, address string, opts *Toke
 	if opts == nil {
 		opts = &TokenTxsOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -1127,7 +1065,7 @@ func (c *HTTPClient) GetTokenTxs(ctx context.Context, address string, opts *Toke
 	result, err := c.request(ctx, EndpointDefiTxsToken, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1154,7 +1092,7 @@ type TokenOHLCVOptions struct {
 	//   - "usd": USD denomination
 	//   - "native": Native token denomination (e.g., SOL, ETH)
 	// Optional, default: "usd"
-	Currency string
+	Currency string `default:"usd"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -1162,7 +1100,7 @@ type TokenOHLCVOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -1172,17 +1110,7 @@ type TokenOHLCVOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenOHLCVOptions) SetDefaults() {
-	if o.Currency == "" {
-		o.Currency = "usd"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenOHLCV retrieves OHLCV (Open, High, Low, Close, Volume) data for a token.
@@ -1233,7 +1161,9 @@ func (c *HTTPClient) GetTokenOHLCV(ctx context.Context, address string, interval
 	if opts == nil {
 		opts = &TokenOHLCVOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if timeFrom < 0 || timeFrom > 10000000000 {
 		return nil, errors.New("time_from must be between 0 and 10000000000")
@@ -1254,7 +1184,7 @@ func (c *HTTPClient) GetTokenOHLCV(ctx context.Context, address string, interval
 	result, err := c.request(ctx, EndpointDefiOHLCV, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1284,7 +1214,7 @@ type TokenMetadataOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenMetadata retrieves detailed metadata information for a token.
@@ -1319,7 +1249,7 @@ func (c *HTTPClient) GetTokenMetadata(ctx context.Context, address string, opts 
 	result, err := c.request(ctx, EndpointDefiV3TokenMetadataSingle, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1380,7 +1310,7 @@ func (c *HTTPClient) GetMultiTokenMetadata(ctx context.Context, addresses []stri
 	result, err := c.request(ctx, EndpointDefiV3TokenMetadataMultiple, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1408,7 +1338,7 @@ type TokenMarketDataOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -1418,14 +1348,7 @@ type TokenMarketDataOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenMarketDataOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenMarketData retrieves comprehensive market data for a token.
@@ -1464,7 +1387,9 @@ func (c *HTTPClient) GetTokenMarketData(ctx context.Context, address string, opt
 	if opts == nil {
 		opts = &TokenMarketDataOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -1474,7 +1399,7 @@ func (c *HTTPClient) GetTokenMarketData(ctx context.Context, address string, opt
 	result, err := c.request(ctx, EndpointDefiV3TokenMarketData, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1520,7 +1445,9 @@ func (c *HTTPClient) GetMultiTokenMarketData(ctx context.Context, addresses []st
 	if opts == nil {
 		opts = &TokenMarketDataOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"list_address":   addresses,
@@ -1530,7 +1457,7 @@ func (c *HTTPClient) GetMultiTokenMarketData(ctx context.Context, addresses []st
 	result, err := c.request(ctx, EndpointDefiV3TokenMarketDataMultiple, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1564,7 +1491,7 @@ type TokenTradeDataOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -1574,14 +1501,7 @@ type TokenTradeDataOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenTradeDataOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenTradeData retrieves comprehensive trading statistics for a token.
@@ -1609,7 +1529,9 @@ func (c *HTTPClient) GetTokenTradeData(ctx context.Context, address string, opts
 	if opts == nil {
 		opts = &TokenTradeDataOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -1623,7 +1545,7 @@ func (c *HTTPClient) GetTokenTradeData(ctx context.Context, address string, opts
 	result, err := c.request(ctx, EndpointDefiV3TokenTradeDataSingle, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1665,7 +1587,9 @@ func (c *HTTPClient) GetMultiTokenTradeData(ctx context.Context, addresses []str
 	if opts == nil {
 		opts = &TokenTradeDataOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"list_address":   addresses,
@@ -1679,7 +1603,7 @@ func (c *HTTPClient) GetMultiTokenTradeData(ctx context.Context, addresses []str
 	result, err := c.request(ctx, EndpointDefiV3TokenTradeDataMultiple, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1712,7 +1636,7 @@ type TokenSecurityOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenSecurity retrieves security information for a token.
@@ -1763,7 +1687,7 @@ func (c *HTTPClient) GetTokenSecurity(ctx context.Context, address string, opts 
 	result, err := c.request(ctx, EndpointDefiTokenSecurity, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1787,11 +1711,11 @@ func (c *HTTPClient) GetTokenSecurity(ctx context.Context, address string, opts 
 type TokenHoldersOptions struct {
 	// Offset is the number of holders to skip for pagination.
 	// Optional, default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of holders to return (1-100).
 	// Optional, default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -1799,7 +1723,7 @@ type TokenHoldersOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "scaled"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -1809,17 +1733,7 @@ type TokenHoldersOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenHoldersOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "scaled"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenHolders retrieves token holders information.
@@ -1860,7 +1774,9 @@ func (c *HTTPClient) GetTokenHolders(ctx context.Context, address string, opts *
 	if opts == nil {
 		opts = &TokenHoldersOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Offset < 0 || opts.Offset > 10000 {
 		return nil, errors.New("offset must be between 0 and 10000")
@@ -1882,7 +1798,7 @@ func (c *HTTPClient) GetTokenHolders(ctx context.Context, address string, opts *
 	result, err := c.request(ctx, EndpointDefiV3TokenHolder, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -1912,7 +1828,7 @@ type WalletPortfolioOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -1923,14 +1839,7 @@ type WalletPortfolioOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletPortfolioOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletPortfolio retrieves the complete portfolio overview for a wallet.
@@ -1980,7 +1889,9 @@ func (c *HTTPClient) GetWalletPortfolio(ctx context.Context, wallet string, opts
 	if opts == nil {
 		opts = &WalletPortfolioOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"wallet":         wallet,
@@ -1990,7 +1901,7 @@ func (c *HTTPClient) GetWalletPortfolio(ctx context.Context, wallet string, opts
 	result, err := c.request(ctx, EndpointV1WalletTokenList, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})
@@ -2017,12 +1928,12 @@ func (c *HTTPClient) GetWalletPortfolio(ctx context.Context, wallet string, opts
 type WalletTxsOptions struct {
 	// Limit is the maximum number of transactions to return (1-100).
 	// Optional, default: 50, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// Before is a cursor for pagination, typically a transaction hash.
 	// Get transactions before this cursor.
 	// Optional, default: nil (start from latest)
-	Before *string
+	Before string `default:""`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -2030,7 +1941,7 @@ type WalletTxsOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -2041,17 +1952,7 @@ type WalletTxsOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletTxsOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletTxs retrieves transaction history for a wallet.
@@ -2097,7 +1998,9 @@ func (c *HTTPClient) GetWalletTxs(ctx context.Context, wallet string, opts *Wall
 	if opts == nil {
 		opts = &WalletTxsOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 100 {
 		return nil, errors.New("limit must be between 1 and 100")
@@ -2109,12 +2012,14 @@ func (c *HTTPClient) GetWalletTxs(ctx context.Context, wallet string, opts *Wall
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalString(params, "before", opts.Before)
+	if opts.Before != "" {
+		params["before"] = opts.Before
+	}
 
 	result, err := c.request(ctx, EndpointV1WalletTxList, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -2139,32 +2044,19 @@ func (c *HTTPClient) GetWalletTxs(ctx context.Context, wallet string, opts *Wall
 // Note: This endpoint is only available for Solana chain.
 type WalletNetWorthOptions struct {
 	// FilterValue filters tokens by minimum value in USD. Only tokens with value >= this will be returned. Default: nil
-	FilterValue *float64
+	FilterValue float64 `default:"0"`
 	// SortBy specifies the field to sort by. Options: "value", "amount". Default: "value"
-	SortBy string
+	SortBy string `default:"value"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// Limit is the maximum number of tokens to return. Default: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// Offset is the number of tokens to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletNetWorthOptions) SetDefaults() {
-	if o.SortBy == "" {
-		o.SortBy = "value"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletNetWorth retrieves the current net worth for a wallet.
@@ -2204,7 +2096,9 @@ func (c *HTTPClient) GetWalletNetWorth(ctx context.Context, wallet string, opts 
 	if opts == nil {
 		opts = &WalletNetWorthOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 100 {
 		return nil, errors.New("limit must be between 1 and 100")
@@ -2221,12 +2115,14 @@ func (c *HTTPClient) GetWalletNetWorth(ctx context.Context, wallet string, opts 
 		"offset":    opts.Offset,
 	}
 
-	addOptionalFloat64(params, "filter_value", opts.FilterValue)
+	if opts.FilterValue > 0 {
+		params["filter_value"] = opts.FilterValue
+	}
 
 	result, err := c.request(ctx, EndpointV2WalletCurrentNetWorth, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -2251,52 +2147,27 @@ type SearchOptions struct {
 	// Chain specifies a single blockchain network to search. If nil, searches all networks. Default: nil
 	Chain *Chain
 	// Target specifies what to search for. Options: "all", "token", "pair". Default: "all"
-	Target string
+	Target string `default:"all"`
 	// SearchMode specifies the search matching mode. Options: "exact", "prefix", "fuzzy". Default: "exact"
-	SearchMode string
+	SearchMode string `default:"exact"`
 	// SearchBy specifies which field to search by. Options: "address", "symbol", "name". Default: "symbol"
-	SearchBy string
+	SearchBy string `default:"symbol"`
 	// SortBy specifies the field to sort results by. Options: "liquidity", "volume", "market_cap". Default: "liquidity"
-	SortBy string
+	SortBy string `default:"liquidity"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// VerifyToken filters to only show verified tokens if true. Default: nil (show all)
-	VerifyToken *bool
+	VerifyToken bool `default:"false"`
 	// Markets filters by specific markets/exchanges. Comma-separated string. Default: nil
-	Markets *string
+	Markets string `default:""`
 	// Offset is the number of results to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of results to return. Default: 10
-	Limit int64
+	Limit int64 `default:"50"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *SearchOptions) SetDefaults() {
-	if o.Target == "" {
-		o.Target = "all"
-	}
-	if o.SearchMode == "" {
-		o.SearchMode = "exact"
-	}
-	if o.SearchBy == "" {
-		o.SearchBy = "symbol"
-	}
-	if o.SortBy == "" {
-		o.SortBy = "volume_24h_usd"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 20
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "scaled"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // Search searches for tokens, markets, and other entities across blockchain networks.
@@ -2338,7 +2209,9 @@ func (c *HTTPClient) Search(ctx context.Context, keyword string, opts *SearchOpt
 	if opts == nil {
 		opts = &SearchOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"keyword":        keyword,
@@ -2352,8 +2225,12 @@ func (c *HTTPClient) Search(ctx context.Context, keyword string, opts *SearchOpt
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalBool(params, "verify_token", opts.VerifyToken)
-	addOptionalString(params, "markets", opts.Markets)
+	if opts.VerifyToken {
+		params["verify_token"] = "true"
+	}
+	if opts.Markets != "" {
+		params["markets"] = opts.Markets
+	}
 
 	var chains []Chain
 	if opts.Chain != nil {
@@ -2363,7 +2240,7 @@ func (c *HTTPClient) Search(ctx context.Context, keyword string, opts *SearchOpt
 	result, err := c.request(ctx, EndpointDefiV3Search, requestOptions{
 		method:          "GET",
 		chains:          chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})
@@ -2388,11 +2265,11 @@ func (c *HTTPClient) Search(ctx context.Context, keyword string, opts *SearchOpt
 type PairTxsOptions struct {
 	// Offset is the number of transactions to skip for pagination.
 	// Optional, default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of transactions to return (1-50).
 	// Optional, default: 50, max: 50
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// TxType specifies the type of transactions to retrieve.
 	// Options:
@@ -2401,14 +2278,14 @@ type PairTxsOptions struct {
 	//   - "remove": Only liquidity remove transactions
 	//   - "all": All transaction types
 	// Optional, default: "swap"
-	TxType string
+	TxType string `default:"swap"`
 
 	// SortType specifies the sort order by timestamp.
 	// Options:
 	//   - "desc": Newest first
 	//   - "asc": Oldest first
 	// Optional, default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -2416,7 +2293,7 @@ type PairTxsOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -2426,23 +2303,7 @@ type PairTxsOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *PairTxsOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 50
-	}
-	if o.TxType == "" {
-		o.TxType = "swap"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetPairTxs retrieves transaction history for a trading pair.
@@ -2471,7 +2332,9 @@ func (c *HTTPClient) GetPairTxs(ctx context.Context, address string, opts *PairT
 	if opts == nil {
 		opts = &PairTxsOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -2485,7 +2348,7 @@ func (c *HTTPClient) GetPairTxs(ctx context.Context, address string, opts *PairT
 	result, err := c.request(ctx, EndpointDefiTxsPair, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -2510,20 +2373,20 @@ type TokenTxsByTimeOptions struct {
 	// AfterTime specifies the start time filter in Unix timestamp (seconds).
 	// Get transactions after this time.
 	// Optional, default: nil (no lower time limit)
-	AfterTime *int64
+	AfterTime int64 `default:"0"`
 
 	// BeforeTime specifies the end time filter in Unix timestamp (seconds).
 	// Get transactions before this time.
 	// Optional, default: nil (no upper time limit)
-	BeforeTime *int64
+	BeforeTime int64 `default:"0"`
 
 	// Offset is the number of transactions to skip for pagination.
 	// Optional, default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of transactions to return (1-100).
 	// Optional, default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// TxType specifies the type of transactions to retrieve.
 	// Options:
@@ -2532,14 +2395,14 @@ type TokenTxsByTimeOptions struct {
 	//   - "remove": Only liquidity remove transactions
 	//   - "all": All transaction types
 	// Optional, default: "swap"
-	TxType string
+	TxType string `default:"swap"`
 
 	// SortType specifies the sort order by timestamp.
 	// Options:
 	//   - "desc": Newest first
 	//   - "asc": Oldest first
 	// Optional, default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -2547,7 +2410,7 @@ type TokenTxsByTimeOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -2557,23 +2420,7 @@ type TokenTxsByTimeOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenTxsByTimeOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.TxType == "" {
-		o.TxType = "swap"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenTxsByTime retrieves token transactions within a specific time range.
@@ -2629,7 +2476,9 @@ func (c *HTTPClient) GetTokenTxsByTime(ctx context.Context, address string, opts
 	if opts == nil {
 		opts = &TokenTxsByTimeOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -2640,13 +2489,17 @@ func (c *HTTPClient) GetTokenTxsByTime(ctx context.Context, address string, opts
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalInt64(params, "after_time", opts.AfterTime)
-	addOptionalInt64(params, "before_time", opts.BeforeTime)
+	if opts.AfterTime > 0 {
+		params["after_time"] = opts.AfterTime
+	}
+	if opts.BeforeTime > 0 {
+		params["before_time"] = opts.BeforeTime
+	}
 
 	result, err := c.request(ctx, EndpointDefiTxsTokenSeekByTime, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -2665,39 +2518,23 @@ func (c *HTTPClient) GetTokenTxsByTime(ctx context.Context, address string, opts
 // PairTxsByTimeOptions holds options for GetPairTxsByTime.
 type PairTxsByTimeOptions struct {
 	// AfterTime filters transactions after this Unix timestamp (seconds). Default: nil
-	AfterTime *int64
+	AfterTime int64 `default:"0"`
 	// BeforeTime filters transactions before this Unix timestamp (seconds). Default: nil
-	BeforeTime *int64
+	BeforeTime int64 `default:"0"`
 	// Offset is the number of transactions to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// TxType specifies the transaction type. Options: "swap", "add", "remove", "all". Default: "swap"
-	TxType string
+	TxType string `default:"swap"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *PairTxsByTimeOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.TxType == "" {
-		o.TxType = "swap"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetPairTxsByTime retrieves trading pair transactions within a specific time range.
@@ -2751,7 +2588,9 @@ func (c *HTTPClient) GetPairTxsByTime(ctx context.Context, address string, opts 
 	if opts == nil {
 		opts = &PairTxsByTimeOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -2762,13 +2601,17 @@ func (c *HTTPClient) GetPairTxsByTime(ctx context.Context, address string, opts 
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalInt64(params, "after_time", opts.AfterTime)
-	addOptionalInt64(params, "before_time", opts.BeforeTime)
+	if opts.AfterTime > 0 {
+		params["after_time"] = opts.AfterTime
+	}
+	if opts.BeforeTime > 0 {
+		params["before_time"] = opts.BeforeTime
+	}
 
 	result, err := c.request(ctx, EndpointDefiTxsPairSeekByTime, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -2791,54 +2634,35 @@ func (c *HTTPClient) GetPairTxsByTime(ctx context.Context, address string, opts 
 // TokenTxsV3Options holds options for GetTokenTxsV3.
 type TokenTxsV3Options struct {
 	// Offset is the number of transactions to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// SortBy specifies the field to sort by. Options: "block_unix_time", "block_number". Default: "block_unix_time"
-	SortBy string
+	SortBy string `default:"block_unix_time"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// TxType specifies the transaction type. Options: "swap", "add", "remove", "all". Default: "swap"
-	TxType string
+	TxType string `default:"swap"`
 	// Source filters by DEX source (e.g., "raydium", "orca"). Default: nil
-	Source *string
+	Source string `default:""`
 	// Owner filters by owner/wallet address. Default: nil
-	Owner *string
+	Owner string `default:""`
 	// PoolID filters by pool/pair ID. Default: nil
-	PoolID *string
+	PoolID string `default:""`
 	// BeforeTime filters transactions before this Unix timestamp (seconds). Default: nil
-	BeforeTime *int64
+	BeforeTime int64 `default:"0"`
 	// AfterTime filters transactions after this Unix timestamp (seconds). Default: nil
-	AfterTime *int64
+	AfterTime int64 `default:"0"`
 	// BeforeBlockNumber filters transactions before this block number. Default: nil
-	BeforeBlockNumber *int64
+	BeforeBlockNumber int64 `default:"0"`
 	// AfterBlockNumber filters transactions after this block number. Default: nil
-	AfterBlockNumber *int64
+	AfterBlockNumber int64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenTxsV3Options) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.SortBy == "" {
-		o.SortBy = "block_unix_time"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.TxType == "" {
-		o.TxType = "swap"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenTxsV3 retrieves token transactions using the V3 API with enhanced filtering.
@@ -2893,7 +2717,9 @@ func (c *HTTPClient) GetTokenTxsV3(ctx context.Context, address string, opts *To
 	if opts == nil {
 		opts = &TokenTxsV3Options{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Offset+opts.Limit > 10000 {
 		return nil, errors.New("offset + limit must be <= 10000")
@@ -2912,18 +2738,32 @@ func (c *HTTPClient) GetTokenTxsV3(ctx context.Context, address string, opts *To
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalString(params, "source", opts.Source)
-	addOptionalString(params, "owner", opts.Owner)
-	addOptionalString(params, "pool_id", opts.PoolID)
-	addOptionalInt64(params, "before_time", opts.BeforeTime)
-	addOptionalInt64(params, "after_time", opts.AfterTime)
-	addOptionalInt64(params, "before_block_number", opts.BeforeBlockNumber)
-	addOptionalInt64(params, "after_block_number", opts.AfterBlockNumber)
+	if opts.Source != "" {
+		params["source"] = opts.Source
+	}
+	if opts.Owner != "" {
+		params["owner"] = opts.Owner
+	}
+	if opts.PoolID != "" {
+		params["pool_id"] = opts.PoolID
+	}
+	if opts.BeforeTime > 0 {
+		params["before_time"] = opts.BeforeTime
+	}
+	if opts.AfterTime > 0 {
+		params["after_time"] = opts.AfterTime
+	}
+	if opts.BeforeBlockNumber > 0 {
+		params["before_block_number"] = opts.BeforeBlockNumber
+	}
+	if opts.AfterBlockNumber > 0 {
+		params["after_block_number"] = opts.AfterBlockNumber
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3TokenTxs, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -2951,7 +2791,7 @@ type PairOHLCVOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -2961,14 +2801,7 @@ type PairOHLCVOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *PairOHLCVOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetPairOHLCV retrieves OHLCV (Open, High, Low, Close, Volume) data for a trading pair.
@@ -3016,7 +2849,9 @@ func (c *HTTPClient) GetPairOHLCV(ctx context.Context, address, intervalType str
 	if opts == nil {
 		opts = &PairOHLCVOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if timeFrom < 0 || timeFrom > 10000000000 {
 		return nil, errors.New("time_from must be between 0 and 10000000000")
@@ -3036,7 +2871,7 @@ func (c *HTTPClient) GetPairOHLCV(ctx context.Context, address, intervalType str
 	result, err := c.request(ctx, EndpointDefiOHLCVPair, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})
@@ -3067,7 +2902,7 @@ type PairOverviewOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -3078,14 +2913,7 @@ type PairOverviewOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *PairOverviewOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetPairOverview retrieves comprehensive overview data for a trading pair.
@@ -3130,7 +2958,9 @@ func (c *HTTPClient) GetPairOverview(ctx context.Context, address string, opts *
 	if opts == nil {
 		opts = &PairOverviewOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -3140,7 +2970,7 @@ func (c *HTTPClient) GetPairOverview(ctx context.Context, address string, opts *
 	result, err := c.request(ctx, EndpointDefiV3PairOverviewSingle, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3198,7 +3028,9 @@ func (c *HTTPClient) GetPairsOverview(ctx context.Context, addresses []string, o
 	if opts == nil {
 		opts = &PairOverviewOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"list_address":   addresses,
@@ -3208,7 +3040,7 @@ func (c *HTTPClient) GetPairsOverview(ctx context.Context, addresses []string, o
 	result, err := c.request(ctx, EndpointDefiV3PairOverviewMultiple, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3231,47 +3063,31 @@ func (c *HTTPClient) GetPairsOverview(ctx context.Context, addresses []string, o
 // TokenListV3Options holds options for GetTokenListV3.
 type TokenListV3Options struct {
 	// SortBy specifies the field to sort by. Options: "liquidity", "market_cap", "fdv", "volume_24h". Default: "liquidity"
-	SortBy string
+	SortBy string `default:"liquidity"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// MinLiquidity filters tokens with liquidity >= this value in USD. Default: nil
-	MinLiquidity *float64
+	MinLiquidity float64 `default:"0"`
 	// MaxLiquidity filters tokens with liquidity <= this value in USD. Default: nil
-	MaxLiquidity *float64
+	MaxLiquidity float64 `default:"0"`
 	// MinMarketCap filters tokens with market cap >= this value in USD. Default: nil
-	MinMarketCap *float64
+	MinMarketCap float64 `default:"0"`
 	// MaxMarketCap filters tokens with market cap <= this value in USD. Default: nil
-	MaxMarketCap *float64
+	MaxMarketCap float64 `default:"0"`
 	// MinFDV filters tokens with fully diluted valuation >= this value in USD. Default: nil
-	MinFDV *float64
+	MinFDV float64 `default:"0"`
 	// MaxFDV filters tokens with fully diluted valuation <= this value in USD. Default: nil
-	MaxFDV *float64
+	MaxFDV float64 `default:"0"`
 	// Offset is the number of tokens to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of tokens to return (1-100). Default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenListV3Options) SetDefaults() {
-	if o.SortBy == "" {
-		o.SortBy = "liquidity"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenListV3 retrieves token list using V3 API with advanced filtering.
@@ -3313,7 +3129,9 @@ func (c *HTTPClient) GetTokenListV3(ctx context.Context, opts *TokenListV3Option
 	if opts == nil {
 		opts = &TokenListV3Options{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 100 {
 		return nil, errors.New("limit must be between 1 and 100")
@@ -3330,17 +3148,29 @@ func (c *HTTPClient) GetTokenListV3(ctx context.Context, opts *TokenListV3Option
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalFloat64(params, "min_liquidity", opts.MinLiquidity)
-	addOptionalFloat64(params, "max_liquidity", opts.MaxLiquidity)
-	addOptionalFloat64(params, "min_market_cap", opts.MinMarketCap)
-	addOptionalFloat64(params, "max_market_cap", opts.MaxMarketCap)
-	addOptionalFloat64(params, "min_fdv", opts.MinFDV)
-	addOptionalFloat64(params, "max_fdv", opts.MaxFDV)
+	if opts.MinLiquidity > 0 {
+		params["min_liquidity"] = opts.MinLiquidity
+	}
+	if opts.MaxLiquidity > 0 {
+		params["max_liquidity"] = opts.MaxLiquidity
+	}
+	if opts.MinMarketCap > 0 {
+		params["min_market_cap"] = opts.MinMarketCap
+	}
+	if opts.MaxMarketCap > 0 {
+		params["max_market_cap"] = opts.MaxMarketCap
+	}
+	if opts.MinFDV > 0 {
+		params["min_fdv"] = opts.MinFDV
+	}
+	if opts.MaxFDV > 0 {
+		params["max_fdv"] = opts.MaxFDV
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3TokenList, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3365,18 +3195,11 @@ type TokenOverviewOptions struct {
 	// Frames specifies the time periods for statistics. Options: "1m", "5m", "30m", "1h", "2h", "4h", "8h", "24h". Default: nil (all)
 	Frames []string
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "scaled"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenOverviewOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "scaled"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenOverview retrieves comprehensive overview information for a token.
@@ -3424,7 +3247,9 @@ func (c *HTTPClient) GetTokenOverview(ctx context.Context, address string, opts 
 	if opts == nil {
 		opts = &TokenOverviewOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -3438,7 +3263,7 @@ func (c *HTTPClient) GetTokenOverview(ctx context.Context, address string, opts 
 	result, err := c.request(ctx, EndpointDefiTokenOverview, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3469,7 +3294,7 @@ type TokenCreationInfoOptions struct {
 
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenCreationInfo retrieves token creation information.
@@ -3519,7 +3344,7 @@ func (c *HTTPClient) GetTokenCreationInfo(ctx context.Context, address string, o
 	result, err := c.request(ctx, EndpointDefiTokenCreationInfo, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3541,25 +3366,25 @@ type TrendingListOptions struct {
 	// Options: "rank", "volume", "volume_change_percent", "trade", "trade_change_percent",
 	// "unique_wallet_24h", "unique_wallet_24h_change_percent"
 	// Optional, default: "rank"
-	SortBy string
+	SortBy string `default:"liquidity"`
 
 	// SortType specifies the sort order.
 	// Options: "asc", "desc"
 	// Optional, default: "asc"
-	SortType string
+	SortType string `default:"desc"`
 
 	// Offset is the number of items to skip for pagination.
 	// Optional, default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of tokens to return (1-20).
 	// Optional, default: 20, max: 20
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options: "raw", "scaled", "both"
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// Optional, default: nil (all networks)
@@ -3567,23 +3392,7 @@ type TrendingListOptions struct {
 
 	// OnLimitExceeded overrides the default rate limit behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TrendingListOptions) SetDefaults() {
-	if o.SortBy == "" {
-		o.SortBy = "rank"
-	}
-	if o.SortType == "" {
-		o.SortType = "asc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 20
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenTrendingList retrieves trending tokens list.
@@ -3624,7 +3433,9 @@ func (c *HTTPClient) GetTokenTrendingList(ctx context.Context, opts *TrendingLis
 	if opts == nil {
 		opts = &TrendingListOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 20 {
 		return nil, errors.New("limit must be between 1 and 20")
@@ -3641,7 +3452,7 @@ func (c *HTTPClient) GetTokenTrendingList(ctx context.Context, opts *TrendingLis
 	result, err := c.request(ctx, EndpointDefiTokenTrending, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3660,22 +3471,15 @@ func (c *HTTPClient) GetTokenTrendingList(ctx context.Context, opts *TrendingLis
 // NewListingOptions holds options for GetNewListing.
 type NewListingOptions struct {
 	// TimeTo filters listings before this Unix timestamp (seconds). Default: nil (current time)
-	TimeTo *int64
+	TimeTo int64 `default:"0"`
 	// Limit is the maximum number of listings to return (1-20). Default: 20, max: 20
-	Limit int64
+	Limit int64 `default:"50"`
 	// MemePlatformEnabled includes meme platform tokens if true. Default: false
-	MemePlatformEnabled bool
+	MemePlatformEnabled bool `default:"false"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *NewListingOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 20
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetNewListing retrieves newly listed tokens.
@@ -3715,7 +3519,9 @@ func (c *HTTPClient) GetNewListing(ctx context.Context, opts *NewListingOptions)
 	if opts == nil {
 		opts = &NewListingOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 20 {
 		return nil, errors.New("limit must be between 1 and 20")
@@ -3726,12 +3532,14 @@ func (c *HTTPClient) GetNewListing(ctx context.Context, opts *NewListingOptions)
 		"meme_platform_enabled": opts.MemePlatformEnabled,
 	}
 
-	addOptionalInt64(params, "time_to", opts.TimeTo)
+	if opts.TimeTo > 0 {
+		params["time_to"] = opts.TimeTo
+	}
 
 	result, err := c.request(ctx, EndpointDefiV2TokensNewListing, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})
@@ -3757,35 +3565,25 @@ func (c *HTTPClient) GetNewListing(ctx context.Context, opts *NewListingOptions)
 // Note: This endpoint is only available for Solana chain.
 type WalletTradesOptions struct {
 	// Offset is the number of trades to skip for pagination. Optional, default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of trades to return (1-100). Optional, default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// BeforeTime filters trades before this Unix timestamp. Optional, default: nil
-	BeforeTime *int64
+	BeforeTime int64 `default:"0"`
 
 	// AfterTime filters trades after this Unix timestamp. Optional, default: nil
-	AfterTime *int64
+	AfterTime int64 `default:"0"`
 
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query. Optional, default: nil
 	Chains []Chain
 
 	// OnLimitExceeded overrides the default rate limit behavior. Optional, default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletTradesOptions) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletTrades retrieves trading history for a wallet.
@@ -3828,7 +3626,9 @@ func (c *HTTPClient) GetWalletTrades(ctx context.Context, walletAddress string, 
 	if opts == nil {
 		opts = &WalletTradesOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        walletAddress,
@@ -3837,13 +3637,17 @@ func (c *HTTPClient) GetWalletTrades(ctx context.Context, walletAddress string, 
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalInt64(params, "before_time", opts.BeforeTime)
-	addOptionalInt64(params, "after_time", opts.AfterTime)
+	if opts.BeforeTime > 0 {
+		params["before_time"] = opts.BeforeTime
+	}
+	if opts.AfterTime > 0 {
+		params["after_time"] = opts.AfterTime
+	}
 
 	result, err := c.request(ctx, EndpointTraderTxsSeekByTime, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3862,20 +3666,13 @@ func (c *HTTPClient) GetWalletTrades(ctx context.Context, walletAddress string, 
 // WalletTokenBalanceOptions holds options for GetWalletTokenBalance.
 type WalletTokenBalanceOptions struct {
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query. Optional, default: nil
 	Chains []Chain
 
 	// OnLimitExceeded overrides the default rate limit behavior. Optional, default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletTokenBalanceOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletTokenBalance retrieves token balance for a wallet.
@@ -3916,7 +3713,9 @@ func (c *HTTPClient) GetWalletTokenBalance(ctx context.Context, wallet, tokenAdd
 	if opts == nil {
 		opts = &WalletTokenBalanceOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"wallet":         wallet,
@@ -3927,7 +3726,7 @@ func (c *HTTPClient) GetWalletTokenBalance(ctx context.Context, wallet, tokenAdd
 	result, err := c.request(ctx, EndpointV1WalletTokenBalance, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -3948,41 +3747,25 @@ func (c *HTTPClient) GetWalletTokenBalance(ctx context.Context, wallet, tokenAdd
 // Note: This endpoint is only available for Solana chain.
 type WalletNetWorthHistoriesOptions struct {
 	// Count is the number of data points to return (1-30). Optional, default: 7, max: 30
-	Count int64
+	Count int64 `default:"7"`
 
 	// Direction specifies the direction to query. Options: "back", "forward". Optional, default: "back"
-	Direction string
+	Direction string `default:"back"`
 
 	// Time is the reference time for the query. Optional, default: nil (current time)
-	Time *string
+	Time string `default:""`
 
 	// Type specifies the time interval. Options: "1d", "1w", "1m". Optional, default: "1d"
-	Type string
+	Type string `default:"1d"`
 
 	// SortType specifies the sort order. Options: "desc", "asc". Optional, default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 
 	// Chains is the list of blockchain networks to query. Optional, default: nil
 	Chains []Chain
 
 	// OnLimitExceeded overrides the default rate limit behavior. Optional, default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletNetWorthHistoriesOptions) SetDefaults() {
-	if o.Count == 0 {
-		o.Count = 7
-	}
-	if o.Direction == "" {
-		o.Direction = "back"
-	}
-	if o.Type == "" {
-		o.Type = "1d"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletNetWorthHistories retrieves net worth history for a wallet.
@@ -4026,7 +3809,9 @@ func (c *HTTPClient) GetWalletNetWorthHistories(ctx context.Context, wallet stri
 	if opts == nil {
 		opts = &WalletNetWorthHistoriesOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Count < 1 || opts.Count > 30 {
 		return nil, errors.New("count must be between 1 and 30")
@@ -4040,12 +3825,14 @@ func (c *HTTPClient) GetWalletNetWorthHistories(ctx context.Context, wallet stri
 		"sort_type": opts.SortType,
 	}
 
-	addOptionalString(params, "time", opts.Time)
+	if opts.Time != "" {
+		params["time"] = opts.Time
+	}
 
 	result, err := c.request(ctx, EndpointV2WalletNetWorth, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -4108,47 +3895,28 @@ func (c *HTTPClient) GetLatestBlockNumber(ctx context.Context, chains []Chain) (
 // TokenTopTradersOptions holds options for GetTokenTopTraders.
 type TokenTopTradersOptions struct {
 	// TimeFrame specifies the time period. Options: "30m", "1h", "2h", "4h", "6h", "8h", "12h", "24h". Default: "24h"
-	TimeFrame string
+	TimeFrame string `default:"24h"`
 
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 
 	// SortBy specifies the field to sort by. Options: "volume", "trade". Default: "volume"
-	SortBy string
+	SortBy string `default:"volume"`
 
 	// Offset is the number of traders to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of traders to return (1-10). Default: 10, max: 10
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenTopTradersOptions) SetDefaults() {
-	if o.TimeFrame == "" {
-		o.TimeFrame = "24h"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.SortBy == "" {
-		o.SortBy = "volume"
-	}
-	if o.Limit == 0 {
-		o.Limit = 10
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenTopTraders retrieves top traders for a token.
@@ -4188,7 +3956,9 @@ func (c *HTTPClient) GetTokenTopTraders(ctx context.Context, address string, opt
 	if opts == nil {
 		opts = &TokenTopTradersOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Offset < 0 || opts.Offset > 10000 {
 		return nil, errors.New("offset must be between 0 and 10000")
@@ -4213,7 +3983,7 @@ func (c *HTTPClient) GetTokenTopTraders(ctx context.Context, address string, opt
 	result, err := c.request(ctx, EndpointDefiV2TokensTopTraders, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})
@@ -4237,35 +4007,19 @@ func (c *HTTPClient) GetTokenTopTraders(ctx context.Context, address string, opt
 // TokenAllMarketListOptions holds options for GetTokenAllMarketList.
 type TokenAllMarketListOptions struct {
 	// TimeFrame specifies the time period. Options: "30m", "1h", "2h", "4h", "6h", "8h", "12h", "24h". Default: "24h"
-	TimeFrame string
+	TimeFrame string `default:"24h"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// SortBy specifies the field to sort by. Options: "liquidity", "volume24h". Default: "liquidity"
-	SortBy string
+	SortBy string `default:"liquidity"`
 	// Offset is the number of markets to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of markets to return (1-20). Default: 20, max: 20
-	Limit int64
+	Limit int64 `default:"50"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenAllMarketListOptions) SetDefaults() {
-	if o.TimeFrame == "" {
-		o.TimeFrame = "24h"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.SortBy == "" {
-		o.SortBy = "liquidity"
-	}
-	if o.Limit == 0 {
-		o.Limit = 20
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenAllMarketList retrieves all market information for a token.
@@ -4306,7 +4060,9 @@ func (c *HTTPClient) GetTokenAllMarketList(ctx context.Context, address string, 
 	if opts == nil {
 		opts = &TokenAllMarketListOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 20 {
 		return nil, errors.New("limit must be between 1 and 20")
@@ -4324,7 +4080,7 @@ func (c *HTTPClient) GetTokenAllMarketList(ctx context.Context, address string, 
 	result, err := c.request(ctx, EndpointDefiV2Markets, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -4349,35 +4105,19 @@ func (c *HTTPClient) GetTokenAllMarketList(ctx context.Context, address string, 
 // Note: This endpoint is only available for Solana chain.
 type GainersLosersOptions struct {
 	// Type specifies the time period. Options: "yesterday", "today", "1W". Default: "1W"
-	Type string
+	Type string `default:"1W"`
 	// SortBy specifies the field to sort by. Options: "PnL". Default: "PnL"
-	SortBy string
+	SortBy string `default:"PnL"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// Offset is the number of traders to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of traders to return (1-10). Default: 10, max: 10
-	Limit int64
+	Limit int64 `default:"50"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *GainersLosersOptions) SetDefaults() {
-	if o.Type == "" {
-		o.Type = "1W"
-	}
-	if o.SortBy == "" {
-		o.SortBy = "PnL"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 10
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetGainersLosers retrieves top gainers and losers tokens.
@@ -4419,7 +4159,9 @@ func (c *HTTPClient) GetGainersLosers(ctx context.Context, opts *GainersLosersOp
 	if opts == nil {
 		opts = &GainersLosersOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"type":      opts.Type,
@@ -4432,7 +4174,7 @@ func (c *HTTPClient) GetGainersLosers(ctx context.Context, opts *GainersLosersOp
 	result, err := c.request(ctx, EndpointTraderGainersLosers, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -4455,23 +4197,13 @@ func (c *HTTPClient) GetGainersLosers(ctx context.Context, opts *GainersLosersOp
 // TokenAllTimeTradesOptions holds options for GetTokenAllTimeTrades and GetMultiTokenAllTimeTrades.
 type TokenAllTimeTradesOptions struct {
 	// TimeFrame specifies the time period. Options: "1m", "5m", "30m", "1h", "2h", "4h", "8h", "24h", "3d", "7d", "14d", "30d", "90d", "180d", "1y", "alltime". Default: "24h"
-	TimeFrame string
+	TimeFrame string `default:"24h"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenAllTimeTradesOptions) SetDefaults() {
-	if o.TimeFrame == "" {
-		o.TimeFrame = "24h"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenAllTimeTrades retrieves all-time trading data for a token.
@@ -4513,7 +4245,9 @@ func (c *HTTPClient) GetTokenAllTimeTrades(ctx context.Context, address string, 
 	if opts == nil {
 		opts = &TokenAllTimeTradesOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -4524,7 +4258,7 @@ func (c *HTTPClient) GetTokenAllTimeTrades(ctx context.Context, address string, 
 	result, err := c.request(ctx, EndpointDefiV3AllTimeTradesSingle, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -4592,12 +4326,14 @@ func (c *HTTPClient) GetMultiTokenAllTimeTrades(ctx context.Context, addresses [
 	if opts == nil {
 		opts = &TokenAllTimeTradesOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3AllTimeTradesMultiple, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody: map[string]any{
 			"list_address":   addresses,
 			"time_frame":     opts.TimeFrame,
@@ -4624,23 +4360,13 @@ func (c *HTTPClient) GetMultiTokenAllTimeTrades(ctx context.Context, addresses [
 // TokenPriceVolumeOptions holds options for GetTokenPriceVolume and GetMultiTokenPriceVolume.
 type TokenPriceVolumeOptions struct {
 	// Type specifies the time period for volume calculation. Options: "1h", "2h", "4h", "8h", "24h". Default: "24h"
-	Type string
+	Type string `default:"24h"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenPriceVolumeOptions) SetDefaults() {
-	if o.Type == "" {
-		o.Type = "24h"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenPriceVolume retrieves token price and trading volume data.
@@ -4681,7 +4407,9 @@ func (c *HTTPClient) GetTokenPriceVolume(ctx context.Context, address string, op
 	if opts == nil {
 		opts = &TokenPriceVolumeOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -4692,7 +4420,7 @@ func (c *HTTPClient) GetTokenPriceVolume(ctx context.Context, address string, op
 	result, err := c.request(ctx, EndpointDefiPriceVolumeSingle, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -4747,12 +4475,14 @@ func (c *HTTPClient) GetMultiTokenPriceVolume(ctx context.Context, addresses []s
 	if opts == nil {
 		opts = &TokenPriceVolumeOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	result, err := c.request(ctx, EndpointDefiPriceVolumeMulti, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody: map[string]any{
 			"list_address":   addresses,
 			"type":           opts.Type,
@@ -4779,18 +4509,11 @@ func (c *HTTPClient) GetMultiTokenPriceVolume(ctx context.Context, addresses []s
 // TokenPriceHistoriesOptions holds options for GetTokenPriceHistories.
 type TokenPriceHistoriesOptions struct {
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenPriceHistoriesOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenPriceHistories retrieves historical price data for a token or trading pair.
@@ -4838,7 +4561,9 @@ func (c *HTTPClient) GetTokenPriceHistories(ctx context.Context, address, addres
 	if opts == nil {
 		opts = &TokenPriceHistoriesOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if timeFrom < 0 || timeFrom > 10000000000 {
 		return nil, errors.New("time_from must be between 0 and 10000000000")
@@ -4859,7 +4584,7 @@ func (c *HTTPClient) GetTokenPriceHistories(ctx context.Context, address, addres
 	result, err := c.request(ctx, EndpointDefiHistoryPrice, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -4915,7 +4640,9 @@ func (c *HTTPClient) GetTokenPriceHistoryByTime(ctx context.Context, address str
 	if opts == nil {
 		opts = &TokenPriceHistoriesOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if unixTime < 0 || unixTime > 10000000000 {
 		return nil, errors.New("unixtime must be between 0 and 10000000000")
@@ -4930,7 +4657,7 @@ func (c *HTTPClient) GetTokenPriceHistoryByTime(ctx context.Context, address str
 	result, err := c.request(ctx, EndpointDefiHistoricalPriceUnix, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -4953,37 +4680,21 @@ func (c *HTTPClient) GetTokenPriceHistoryByTime(ctx context.Context, address str
 // TokenOHLCVV3Options holds options for GetTokenOHLCVV3 and GetPairOHLCVV3.
 type TokenOHLCVV3Options struct {
 	// Currency specifies the price currency. Options: "usd", "native". Default: "usd"
-	Currency string
+	Currency string `default:"usd"`
 	// Mode specifies the query mode. Options: "range" (by time range), "count" (by count). Default: "range"
-	Mode string
+	Mode string `default:"range"`
 	// CountLimit is the maximum number of OHLCV data points when mode is "count". Default: 5000
-	CountLimit int64
+	CountLimit int64 `default:"50"`
 	// Padding adds empty candles for missing time periods if true. Default: false
-	Padding bool
+	Padding bool `default:"false"`
 	// Outlier includes outlier detection data if true. Default: true
-	Outlier bool
+	Outlier bool `default:"false"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenOHLCVV3Options) SetDefaults() {
-	if o.Currency == "" {
-		o.Currency = "usd"
-	}
-	if o.Mode == "" {
-		o.Mode = "range"
-	}
-	if o.CountLimit == 0 {
-		o.CountLimit = 5000
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenOHLCVV3 retrieves OHLCV data for a token using the V3 API.
@@ -5013,7 +4724,9 @@ func (c *HTTPClient) GetTokenOHLCVV3(ctx context.Context, address, intervalType 
 	if opts == nil {
 		opts = &TokenOHLCVV3Options{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if timeFrom < 0 || timeFrom > 10000000000 {
 		return nil, errors.New("time_from must be between 0 and 10000000000")
@@ -5041,7 +4754,7 @@ func (c *HTTPClient) GetTokenOHLCVV3(ctx context.Context, address, intervalType 
 	result, err := c.request(ctx, EndpointDefiV3OHLCV, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5083,7 +4796,9 @@ func (c *HTTPClient) GetPairOHLCVV3(ctx context.Context, address, intervalType s
 	if opts == nil {
 		opts = &TokenOHLCVV3Options{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if timeFrom < 0 || timeFrom > 10000000000 {
 		return nil, errors.New("time_from must be between 0 and 10000000000")
@@ -5111,7 +4826,7 @@ func (c *HTTPClient) GetPairOHLCVV3(ctx context.Context, address, intervalType s
 	result, err := c.request(ctx, EndpointDefiV3OHLCVPair, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})
@@ -5135,18 +4850,11 @@ func (c *HTTPClient) GetPairOHLCVV3(ctx context.Context, address, intervalType s
 // TokenPriceStatsOptions holds options for GetTokenPriceStats and GetMultiTokenPriceStats.
 type TokenPriceStatsOptions struct {
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenPriceStatsOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenPriceStats retrieves comprehensive price statistics for a token.
@@ -5178,7 +4886,9 @@ func (c *HTTPClient) GetTokenPriceStats(ctx context.Context, address string, tim
 	if opts == nil {
 		opts = &TokenPriceStatsOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":        address,
@@ -5189,7 +4899,7 @@ func (c *HTTPClient) GetTokenPriceStats(ctx context.Context, address string, tim
 	result, err := c.request(ctx, EndpointDefiV3PriceStatsSingle, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5238,7 +4948,9 @@ func (c *HTTPClient) GetMultiTokenPriceStats(ctx context.Context, addresses, tim
 	if opts == nil {
 		opts = &TokenPriceStatsOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	// Build URL with query params
 	endpoint := EndpointDefiV3PriceStatsMultiple + "?list_timeframe=" + strings.Join(timeframes, ",") + "&ui_amount_mode=" + opts.UIAmountMode
@@ -5246,7 +4958,7 @@ func (c *HTTPClient) GetMultiTokenPriceStats(ctx context.Context, addresses, tim
 	result, err := c.request(ctx, endpoint, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody: map[string]any{
 			"list_address": addresses,
 		},
@@ -5271,39 +4983,23 @@ func (c *HTTPClient) GetMultiTokenPriceStats(ctx context.Context, addresses, tim
 // TokenMintBurnTxsOptions holds options for GetTokenMintBurnTxs. Note: Solana only.
 type TokenMintBurnTxsOptions struct {
 	// SortBy specifies the field to sort by. Options: "block_time". Default: "block_time"
-	SortBy string
+	SortBy string `default:"block_time"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// Type specifies the transaction type filter. Options: "mint", "burn", "all". Default: "all"
-	Type string
+	Type string `default:"all"`
 	// AfterTime filters transactions after this Unix timestamp. Default: nil
-	AfterTime *int64
+	AfterTime int64 `default:"0"`
 	// BeforeTime filters transactions before this Unix timestamp. Default: nil
-	BeforeTime *int64
+	BeforeTime int64 `default:"0"`
 	// Offset is the number of transactions to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return. Default: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenMintBurnTxsOptions) SetDefaults() {
-	if o.SortBy == "" {
-		o.SortBy = "block_time"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Type == "" {
-		o.Type = "all"
-	}
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenMintBurnTxs retrieves mint and burn transactions for a token.
@@ -5331,7 +5027,9 @@ func (c *HTTPClient) GetTokenMintBurnTxs(ctx context.Context, address string, op
 	if opts == nil {
 		opts = &TokenMintBurnTxsOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"address":   address,
@@ -5342,13 +5040,17 @@ func (c *HTTPClient) GetTokenMintBurnTxs(ctx context.Context, address string, op
 		"limit":     opts.Limit,
 	}
 
-	addOptionalInt64(params, "after_time", opts.AfterTime)
-	addOptionalInt64(params, "before_time", opts.BeforeTime)
+	if opts.AfterTime > 0 {
+		params["after_time"] = opts.AfterTime
+	}
+	if opts.BeforeTime > 0 {
+		params["before_time"] = opts.BeforeTime
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3TokenMintBurnTxs, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})
@@ -5374,7 +5076,7 @@ type TokenExitLiquidityOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenExitLiquidity retrieves exit liquidity information for a token.
@@ -5407,7 +5109,7 @@ func (c *HTTPClient) GetTokenExitLiquidity(ctx context.Context, address string, 
 	result, err := c.request(ctx, EndpointDefiV3TokenExitLiquidity, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5453,7 +5155,7 @@ func (c *HTTPClient) GetMultiTokenExitLiquidity(ctx context.Context, addresses [
 	result, err := c.request(ctx, EndpointDefiV3TokenExitLiquidityMultiple, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5476,41 +5178,25 @@ func (c *HTTPClient) GetMultiTokenExitLiquidity(ctx context.Context, addresses [
 // MemeListOptions holds options for GetMemeList. Note: Solana only.
 type MemeListOptions struct {
 	// SortBy specifies the field to sort by. Default: "progress_percent"
-	SortBy string
+	SortBy string `default:"liquidity"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// Source specifies the platform source. Options: "all", "pump_dot_fun". Default: "all"
-	Source string
+	Source string `default:"all"`
 	// Creator filters by creator address. Default: nil
-	Creator *string
+	Creator string `default:""`
 	// PlatformID filters by platform ID. Default: nil
-	PlatformID *string
+	PlatformID string `default:""`
 	// Graduated filters by graduation status. Default: nil
-	Graduated *bool
+	Graduated bool `default:"false"`
 	// Offset is the number of items to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of items to return. Default: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *MemeListOptions) SetDefaults() {
-	if o.SortBy == "" {
-		o.SortBy = "progress_percent"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Source == "" {
-		o.Source = "all"
-	}
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetMemeList retrieves list of meme tokens.
@@ -5534,7 +5220,9 @@ func (c *HTTPClient) GetMemeList(ctx context.Context, opts *MemeListOptions) (*R
 	if opts == nil {
 		opts = &MemeListOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"sort_by":   opts.SortBy,
@@ -5544,14 +5232,20 @@ func (c *HTTPClient) GetMemeList(ctx context.Context, opts *MemeListOptions) (*R
 		"limit":     opts.Limit,
 	}
 
-	addOptionalString(params, "creator", opts.Creator)
-	addOptionalString(params, "platform_id", opts.PlatformID)
-	addOptionalBool(params, "graduated", opts.Graduated)
+	if opts.Creator != "" {
+		params["creator"] = opts.Creator
+	}
+	if opts.PlatformID != "" {
+		params["platform_id"] = opts.PlatformID
+	}
+	if opts.Graduated {
+		params["graduated"] = "true"
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3TokenMemeList, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5572,7 +5266,7 @@ type MemeDetailOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
+	OnLimitExceeded string `default:""`
 }
 
 // GetMemeDetail retrieves detailed information for a meme token.
@@ -5605,7 +5299,7 @@ func (c *HTTPClient) GetMemeDetail(ctx context.Context, address string, opts *Me
 	result, err := c.request(ctx, EndpointDefiV3TokenMemeDetailSingle, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5630,7 +5324,7 @@ type WalletTokensPnLOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletTokensPnL retrieves profit and loss for wallet tokens.
@@ -5664,7 +5358,7 @@ func (c *HTTPClient) GetWalletTokensPnL(ctx context.Context, wallet string, toke
 	result, err := c.request(ctx, EndpointV2WalletPnl, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5711,7 +5405,7 @@ func (c *HTTPClient) GetWalletsPnLByToken(ctx context.Context, tokenAddress stri
 	result, err := c.request(ctx, EndpointV2WalletPnlMultiple, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5736,7 +5430,7 @@ type WalletTokensBalanceOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletTokensBalance retrieves token balances for a wallet.
@@ -5764,7 +5458,7 @@ func (c *HTTPClient) GetWalletTokensBalance(ctx context.Context, wallet string, 
 	result, err := c.request(ctx, EndpointV2WalletTokenBalance, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody: map[string]any{
 			"wallet":          wallet,
 			"token_addresses": tokenAddresses,
@@ -5811,7 +5505,7 @@ func (c *HTTPClient) GetWalletTokenFirstTx(ctx context.Context, wallets []string
 	result, err := c.request(ctx, EndpointV2WalletTxFirstFunded, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody: map[string]any{
 			"wallets":       wallets,
 			"token_address": tokenAddress,
@@ -5838,32 +5532,19 @@ func (c *HTTPClient) GetWalletTokenFirstTx(ctx context.Context, wallets []string
 // WalletNetWorthDetailsOptions holds options for GetWalletNetWorthDetails. Note: Solana only.
 type WalletNetWorthDetailsOptions struct {
 	// Time is the reference time for the query. Default: nil (current time)
-	Time *string
+	Time string `default:""`
 	// Type specifies the time interval. Options: "1d", "1w", "1m". Default: "1d"
-	Type string
+	Type string `default:"1d"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// Limit is the maximum number of items to return (1-100). Default: 20, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// Offset is the number of items to skip for pagination (0-10000). Default: 0, max: 10000
-	Offset int64
+	Offset int64 `default:"0"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletNetWorthDetailsOptions) SetDefaults() {
-	if o.Type == "" {
-		o.Type = "1d"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 20
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletNetWorthDetails retrieves detailed net worth information for a wallet.
@@ -5890,7 +5571,9 @@ func (c *HTTPClient) GetWalletNetWorthDetails(ctx context.Context, wallet string
 	if opts == nil {
 		opts = &WalletNetWorthDetailsOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 100 {
 		return nil, errors.New("limit must be between 1 and 100")
@@ -5907,12 +5590,14 @@ func (c *HTTPClient) GetWalletNetWorthDetails(ctx context.Context, wallet string
 		"offset":    opts.Offset,
 	}
 
-	addOptionalString(params, "time", opts.Time)
+	if opts.Time != "" {
+		params["time"] = opts.Time
+	}
 
 	result, err := c.request(ctx, EndpointV2WalletNetWorthDetails, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -5935,18 +5620,11 @@ func (c *HTTPClient) GetWalletNetWorthDetails(ctx context.Context, wallet string
 // TokenHolderBatchOptions holds options for GetTokenHolderBatch. Note: Solana only.
 type TokenHolderBatchOptions struct {
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "scaled"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenHolderBatchOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "scaled"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenHolderBatch retrieves token holder information for multiple wallets.
@@ -5973,7 +5651,9 @@ func (c *HTTPClient) GetTokenHolderBatch(ctx context.Context, tokenAddress strin
 	if opts == nil {
 		opts = &TokenHolderBatchOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	// Build URL with query params
 	endpoint := EndpointTokenV1HolderBatch + "?ui_amount_mode=" + opts.UIAmountMode
@@ -5981,7 +5661,7 @@ func (c *HTTPClient) GetTokenHolderBatch(ctx context.Context, tokenAddress strin
 	result, err := c.request(ctx, endpoint, requestOptions{
 		method:          "POST",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody: map[string]any{
 			"token_address": tokenAddress,
 			"wallets":       wallets,
@@ -6008,42 +5688,23 @@ func (c *HTTPClient) GetTokenHolderBatch(ctx context.Context, tokenAddress strin
 // TokenListV1Options holds options for GetTokenListV1.
 type TokenListV1Options struct {
 	// SortBy specifies the field to sort by. Default: "liquidity"
-	SortBy string
+	SortBy string `default:"liquidity"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// Offset is the number of tokens to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of tokens to return (1-50). Default: 50, max: 50
-	Limit int64
+	Limit int64 `default:"50"`
 	// MinLiquidity is the minimum liquidity filter in USD. Default: 100
 	MinLiquidity float64
 	// MaxLiquidity is the maximum liquidity filter in USD. Default: nil
-	MaxLiquidity *float64
+	MaxLiquidity float64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenListV1Options) SetDefaults() {
-	if o.SortBy == "" {
-		o.SortBy = "liquidity"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 50
-	}
-	if o.MinLiquidity == 0 {
-		o.MinLiquidity = 100
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenListV1 retrieves token list using V1 API with basic filtering.
@@ -6066,7 +5727,9 @@ func (c *HTTPClient) GetTokenListV1(ctx context.Context, opts *TokenListV1Option
 	if opts == nil {
 		opts = &TokenListV1Options{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 50 {
 		return nil, errors.New("limit must be between 1 and 50")
@@ -6081,12 +5744,14 @@ func (c *HTTPClient) GetTokenListV1(ctx context.Context, opts *TokenListV1Option
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalFloat64(params, "max_liquidity", opts.MaxLiquidity)
+	if opts.MaxLiquidity > 0 {
+		params["max_liquidity"] = opts.MaxLiquidity
+	}
 
 	result, err := c.request(ctx, EndpointDefiTokenList, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -6109,54 +5774,35 @@ func (c *HTTPClient) GetTokenListV1(ctx context.Context, opts *TokenListV1Option
 // AllTxsV3Options holds options for GetAllTxs.
 type AllTxsV3Options struct {
 	// Offset is the number of transactions to skip for pagination. Default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// SortBy specifies the field to sort by. Options: "block_unix_time", "block_number". Default: "block_unix_time"
-	SortBy string
+	SortBy string `default:"block_unix_time"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 	// TxType specifies the transaction type filter. Options: "swap", "add", "remove", "all". Default: "swap"
-	TxType string
+	TxType string `default:"swap"`
 	// Source filters by DEX source. Default: nil
-	Source *string
+	Source string `default:""`
 	// Owner filters by owner address. Default: nil
-	Owner *string
+	Owner string `default:""`
 	// PoolID filters by pool ID. Default: nil
-	PoolID *string
+	PoolID string `default:""`
 	// BeforeTime filters transactions before this Unix timestamp. Default: nil
-	BeforeTime *int64
+	BeforeTime int64 `default:"0"`
 	// AfterTime filters transactions after this Unix timestamp. Default: nil
-	AfterTime *int64
+	AfterTime int64 `default:"0"`
 	// BeforeBlockNumber filters transactions before this block number. Default: nil
-	BeforeBlockNumber *int64
+	BeforeBlockNumber int64 `default:"0"`
 	// AfterBlockNumber filters transactions after this block number. Default: nil
-	AfterBlockNumber *int64
+	AfterBlockNumber int64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "scaled"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *AllTxsV3Options) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.SortBy == "" {
-		o.SortBy = "block_unix_time"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.TxType == "" {
-		o.TxType = "swap"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "scaled"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetAllTxs retrieves all transactions across the platform with advanced filtering.
@@ -6180,7 +5826,9 @@ func (c *HTTPClient) GetAllTxs(ctx context.Context, opts *AllTxsV3Options) (*Res
 	if opts == nil {
 		opts = &AllTxsV3Options{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Offset+opts.Limit > 10000 {
 		return nil, errors.New("offset + limit must be <= 10000")
@@ -6198,18 +5846,32 @@ func (c *HTTPClient) GetAllTxs(ctx context.Context, opts *AllTxsV3Options) (*Res
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalString(params, "source", opts.Source)
-	addOptionalString(params, "owner", opts.Owner)
-	addOptionalString(params, "pool_id", opts.PoolID)
-	addOptionalInt64(params, "before_time", opts.BeforeTime)
-	addOptionalInt64(params, "after_time", opts.AfterTime)
-	addOptionalInt64(params, "before_block_number", opts.BeforeBlockNumber)
-	addOptionalInt64(params, "after_block_number", opts.AfterBlockNumber)
+	if opts.Source != "" {
+		params["source"] = opts.Source
+	}
+	if opts.Owner != "" {
+		params["owner"] = opts.Owner
+	}
+	if opts.PoolID != "" {
+		params["pool_id"] = opts.PoolID
+	}
+	if opts.BeforeTime > 0 {
+		params["before_time"] = opts.BeforeTime
+	}
+	if opts.AfterTime > 0 {
+		params["after_time"] = opts.AfterTime
+	}
+	if opts.BeforeBlockNumber > 0 {
+		params["before_block_number"] = opts.BeforeBlockNumber
+	}
+	if opts.AfterBlockNumber > 0 {
+		params["after_block_number"] = opts.AfterBlockNumber
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3Txs, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -6228,40 +5890,27 @@ func (c *HTTPClient) GetAllTxs(ctx context.Context, opts *AllTxsV3Options) (*Res
 // RecentTxsV3Options holds options for GetRecentTxs.
 type RecentTxsV3Options struct {
 	// Offset is the number of transactions to skip for pagination (0-9999). Default: 0, max: 9999
-	Offset int64
+	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 	// TxType specifies the transaction type filter. Options: "swap", "add", "remove", "all". Default: "swap"
-	TxType string
+	TxType string `default:"swap"`
 	// Owner filters by owner address. Default: nil
-	Owner *string
+	Owner string `default:""`
 	// BeforeTime filters transactions before this Unix timestamp. Default: nil
-	BeforeTime *int64
+	BeforeTime int64 `default:"0"`
 	// AfterTime filters transactions after this Unix timestamp. Default: nil
-	AfterTime *int64
+	AfterTime int64 `default:"0"`
 	// BeforeBlockNumber filters transactions before this block number. Default: nil
-	BeforeBlockNumber *int64
+	BeforeBlockNumber int64 `default:"0"`
 	// AfterBlockNumber filters transactions after this block number. Default: nil
-	AfterBlockNumber *int64
+	AfterBlockNumber int64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *RecentTxsV3Options) SetDefaults() {
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.TxType == "" {
-		o.TxType = "swap"
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetRecentTxs retrieves recent transactions across the platform with advanced filtering.
@@ -6285,7 +5934,9 @@ func (c *HTTPClient) GetRecentTxs(ctx context.Context, opts *RecentTxsV3Options)
 	if opts == nil {
 		opts = &RecentTxsV3Options{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Offset < 0 || opts.Offset > 9999 {
 		return nil, errors.New("offset must be between 0 and 9999")
@@ -6304,16 +5955,26 @@ func (c *HTTPClient) GetRecentTxs(ctx context.Context, opts *RecentTxsV3Options)
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalString(params, "owner", opts.Owner)
-	addOptionalInt64(params, "before_time", opts.BeforeTime)
-	addOptionalInt64(params, "after_time", opts.AfterTime)
-	addOptionalInt64(params, "before_block_number", opts.BeforeBlockNumber)
-	addOptionalInt64(params, "after_block_number", opts.AfterBlockNumber)
+	if opts.Owner != "" {
+		params["owner"] = opts.Owner
+	}
+	if opts.BeforeTime > 0 {
+		params["before_time"] = opts.BeforeTime
+	}
+	if opts.AfterTime > 0 {
+		params["after_time"] = opts.AfterTime
+	}
+	if opts.BeforeBlockNumber > 0 {
+		params["before_block_number"] = opts.BeforeBlockNumber
+	}
+	if opts.AfterBlockNumber > 0 {
+		params["after_block_number"] = opts.AfterBlockNumber
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3Txs, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -6336,18 +5997,11 @@ func (c *HTTPClient) GetRecentTxs(ctx context.Context, opts *RecentTxsV3Options)
 // OHLCVBaseQuoteOptions holds options for GetOHLCVBaseQuote.
 type OHLCVBaseQuoteOptions struct {
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *OHLCVBaseQuoteOptions) SetDefaults() {
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetOHLCVBaseQuote retrieves OHLCV data for a trading pair by base and quote token addresses.
@@ -6376,7 +6030,9 @@ func (c *HTTPClient) GetOHLCVBaseQuote(ctx context.Context, baseAddress, quoteAd
 	if opts == nil {
 		opts = &OHLCVBaseQuoteOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if timeFrom < 0 || timeFrom > 10000000000 {
 		return nil, errors.New("time_from must be between 0 and 10000000000")
@@ -6397,7 +6053,7 @@ func (c *HTTPClient) GetOHLCVBaseQuote(ctx context.Context, baseAddress, quoteAd
 	result, err := c.request(ctx, EndpointDefiOHLCVBaseQuote, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -6425,35 +6081,35 @@ type TokenListV3ScrollOptions struct {
 	// SortBy specifies the field to sort by.
 	// Options: "liquidity", "market_cap", "volume_24h", etc.
 	// Optional, default: "liquidity"
-	SortBy string
+	SortBy string `default:"liquidity"`
 
 	// SortType specifies the sort order.
 	// Options:
 	//   - "desc": Highest first
 	//   - "asc": Lowest first
 	// Optional, default: "desc"
-	SortType string
+	SortType string `default:"desc"`
 
 	// Limit is the maximum number of tokens to return per page (1-5000).
 	// Higher limits allow fetching more data per request but use more quota.
 	// Optional, default: 5000, max: 5000
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// ScrollID is the pagination cursor from the previous response.
 	// Use the scroll_id from the previous response to get the next page.
 	// For the first request, leave this nil to start from the beginning.
 	// Optional, default: nil (start from beginning)
-	ScrollID *string
+	ScrollID string `default:""`
 
 	// MinLiquidity is the minimum liquidity filter in USD.
 	// Only tokens with liquidity >= this value will be returned.
 	// Optional, default: nil (no minimum)
-	MinLiquidity *float64
+	MinLiquidity float64 `default:"0"`
 
 	// MaxLiquidity is the maximum liquidity filter in USD.
 	// Only tokens with liquidity <= this value will be returned.
 	// Optional, default: nil (no maximum)
-	MaxLiquidity *float64
+	MaxLiquidity float64 `default:"0"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -6461,7 +6117,7 @@ type TokenListV3ScrollOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -6472,23 +6128,7 @@ type TokenListV3ScrollOptions struct {
 	// If nil, uses the client's default behavior.
 	// Note: This endpoint has a very strict 2 RPS limit.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *TokenListV3ScrollOptions) SetDefaults() {
-	if o.SortBy == "" {
-		o.SortBy = "liquidity"
-	}
-	if o.SortType == "" {
-		o.SortType = "desc"
-	}
-	if o.Limit == 0 {
-		o.Limit = 5000
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetTokenListV3Scroll retrieves token list using V3 API with Scroll network support.
@@ -6518,7 +6158,9 @@ func (c *HTTPClient) GetTokenListV3Scroll(ctx context.Context, opts *TokenListV3
 	if opts == nil {
 		opts = &TokenListV3ScrollOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	if opts.Limit < 1 || opts.Limit > 5000 {
 		return nil, errors.New("limit must be between 1 and 5000")
@@ -6531,14 +6173,20 @@ func (c *HTTPClient) GetTokenListV3Scroll(ctx context.Context, opts *TokenListV3
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalString(params, "scroll_id", opts.ScrollID)
-	addOptionalFloat64(params, "min_liquidity", opts.MinLiquidity)
-	addOptionalFloat64(params, "max_liquidity", opts.MaxLiquidity)
+	if opts.ScrollID != "" {
+		params["scroll_id"] = opts.ScrollID
+	}
+	if opts.MinLiquidity > 0 {
+		params["min_liquidity"] = opts.MinLiquidity
+	}
+	if opts.MaxLiquidity > 0 {
+		params["max_liquidity"] = opts.MaxLiquidity
+	}
 
 	result, err := c.request(ctx, EndpointDefiV3TokenListScroll, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 	})
 	if err != nil {
@@ -6570,34 +6218,34 @@ type WalletBalanceChangesOptions struct {
 	// TimeFrom is the start time filter in Unix timestamp (seconds).
 	// Get balance changes after this time.
 	// Optional, default: nil (no lower time limit)
-	TimeFrom *int64
+	TimeFrom int64 `default:"0"`
 
 	// TimeTo is the end time filter in Unix timestamp (seconds).
 	// Get balance changes before this time.
 	// Optional, default: nil (no upper time limit)
-	TimeTo *int64
+	TimeTo int64 `default:"0"`
 
 	// Type specifies the token type.
 	// Options:
 	//   - "SPL": SPL tokens (Solana Program Library tokens)
 	//   - "NFT": NFT tokens
 	// Optional, default: "SPL"
-	Type string
+	Type string `default:"1d"`
 
 	// ChangeType filters by the type of balance change.
 	// Options:
 	//   - "increase": Only show increases in balance
 	//   - "decrease": Only show decreases in balance
 	// Optional, default: nil (show all changes)
-	ChangeType *string
+	ChangeType string `default:""`
 
 	// Offset is the number of balance changes to skip for pagination.
 	// Optional, default: 0
-	Offset int64
+	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of balance changes to return (1-100).
 	// Optional, default: 100, max: 100
-	Limit int64
+	Limit int64 `default:"50"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -6605,7 +6253,7 @@ type WalletBalanceChangesOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "raw"
-	UIAmountMode string
+	UIAmountMode string `default:"raw"`
 
 	// Chains is the list of blockchain networks to query.
 	// Note: Currently only Solana is supported for this endpoint.
@@ -6615,20 +6263,7 @@ type WalletBalanceChangesOptions struct {
 	// OnLimitExceeded overrides the default rate limit behavior for this request.
 	// If nil, uses the client's default behavior.
 	// Optional, default: nil (use client default)
-	OnLimitExceeded *RateLimitBehavior
-}
-
-// SetDefaults sets default values
-func (o *WalletBalanceChangesOptions) SetDefaults() {
-	if o.Type == "" {
-		o.Type = "SPL"
-	}
-	if o.Limit == 0 {
-		o.Limit = 100
-	}
-	if o.UIAmountMode == "" {
-		o.UIAmountMode = "raw"
-	}
+	OnLimitExceeded string `default:""`
 }
 
 // GetWalletBalanceChanges retrieves balance changes for a wallet.
@@ -6659,7 +6294,9 @@ func (c *HTTPClient) GetWalletBalanceChanges(ctx context.Context, wallet, tokenA
 	if opts == nil {
 		opts = &WalletBalanceChangesOptions{}
 	}
-	opts.SetDefaults()
+	if err := ApplyDefaults(opts); err != nil {
+		return nil, fmt.Errorf("failed to apply defaults: %w", err)
+	}
 
 	params := map[string]any{
 		"wallet":         wallet,
@@ -6669,17 +6306,23 @@ func (c *HTTPClient) GetWalletBalanceChanges(ctx context.Context, wallet, tokenA
 		"ui_amount_mode": opts.UIAmountMode,
 	}
 
-	addOptionalInt64(params, "time_from", opts.TimeFrom)
-	addOptionalInt64(params, "time_to", opts.TimeTo)
+	if opts.TimeFrom > 0 {
+		params["time_from"] = opts.TimeFrom
+	}
+	if opts.TimeTo > 0 {
+		params["time_to"] = opts.TimeTo
+	}
 	if opts.Type != "" {
 		params["type"] = opts.Type
 	}
-	addOptionalString(params, "change_type", opts.ChangeType)
+	if opts.ChangeType != "" {
+		params["change_type"] = opts.ChangeType
+	}
 
 	result, err := c.request(ctx, EndpointV1WalletTokenBalance, requestOptions{
 		method:          "GET",
 		chains:          opts.Chains,
-		onLimitExceeded: opts.OnLimitExceeded,
+		onLimitExceeded: RateLimitBehavior(opts.OnLimitExceeded),
 		paramsOrBody:    params,
 		respJustItems:   true,
 	})

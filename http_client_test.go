@@ -298,8 +298,8 @@ func TestGetTokenTxsByTime(t *testing.T) {
 	// from := now - 3600 // 1 hour ago
 
 	txs, err := client.GetTokenTxsByTime(ctx, testTokenSOL, &TokenTxsByTimeOptions{
-		// AfterTime:  &from,
-		BeforeTime: &now,
+		// AfterTime:  from,
+		BeforeTime: now,
 	})
 	if err != nil {
 		t.Fatalf("GetTokenTxsByTime failed: %v", err)
@@ -344,8 +344,8 @@ func TestGetPairTxsByTime(t *testing.T) {
 	from := now - 3600
 
 	txs, err := client.GetPairTxsByTime(ctx, testPairAddress, &PairTxsByTimeOptions{
-		AfterTime: &from,
-		// BeforeTime: &now,
+		AfterTime: from,
+		// BeforeTime: now,
 	})
 	if err != nil {
 		t.Fatalf("GetPairTxsByTime failed: %v", err)
