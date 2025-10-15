@@ -1,4 +1,4 @@
-module github.com/dwdwow/birdeye
+module github.com/dwdwow/birdeye-go
 
 go 1.25.0
 
