@@ -463,7 +463,6 @@ func (c *HTTPClient) request(ctx context.Context, endpoint string, opts requestO
 		if opts.method == "POST" {
 			// POST request with JSON body
 			bodyData, _ := json.Marshal(opts.paramsOrBody)
-			fmt.Printf("bodyData: %s\n", string(bodyData))
 			req, err = http.NewRequestWithContext(ctx, "POST", reqURL, bytes.NewReader(bodyData))
 			if err != nil {
 				return nil, err
@@ -489,8 +488,6 @@ func (c *HTTPClient) request(ctx context.Context, endpoint string, opts requestO
 		if opts.method == "POST" {
 			req.Header.Set("Content-Type", "application/json")
 		}
-
-		fmt.Printf("reqURL: %s\n", req.URL)
 
 		// Make request
 		resp, err = c.httpClient.Do(req)
