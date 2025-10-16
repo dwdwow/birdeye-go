@@ -24,14 +24,10 @@ func getTestClient(t *testing.T) *HTTPClient {
 		t.Skip("BIRDEYE_API_KEY environment variable not set")
 	}
 
-	client, err := NewHTTPClient(HTTPClientConfig{
+	client := NewHTTPClient(HTTPClientConfig{
 		APIKey: apiKey,
 		Chains: []Chain{ChainSolana},
 	})
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
 	return client
 }
 

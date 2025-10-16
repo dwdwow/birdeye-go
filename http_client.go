@@ -253,11 +253,7 @@ type HTTPClientConfig struct {
 //	    APIKey: "your-api-key",
 //	    OnLimitExceeded: birdeye.RateLimitRaise,
 //	})
-func NewHTTPClient(config HTTPClientConfig) (*HTTPClient, error) {
-	if config.APIKey == "" {
-		return nil, errors.New("api_key is required")
-	}
-
+func NewHTTPClient(config HTTPClientConfig) *HTTPClient {
 	if config.BaseURL == "" {
 		config.BaseURL = PublicAPIBaseURL
 	}
@@ -303,7 +299,7 @@ func NewHTTPClient(config HTTPClientConfig) (*HTTPClient, error) {
 	// Map endpoints to their rate limiters
 	client.initEndpointLimiters()
 
-	return client, nil
+	return client
 }
 
 // initEndpointLimiters initializes the endpoint to limiter mapping
