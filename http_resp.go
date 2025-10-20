@@ -320,7 +320,7 @@ type RespTokenTxsItemV3 struct {
 // RespTokenTxsV3 represents the response for token transactions V3
 type RespTokenTxsV3 struct {
 	Items   []RespTokenTxsItemV3 `json:"items" bson:"items"`
-	HasNext bool                 `json:"hasNext" bson:"hasNext"`
+	HasNext bool                 `json:"has_next" bson:"has_next"`
 }
 
 // RespRecentTxsTokenV3 represents token details in a recent transactions v3 response
