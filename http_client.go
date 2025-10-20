@@ -1689,7 +1689,7 @@ type TokenHoldersOptions struct {
 
 	// Limit is the maximum number of holders to return (1-100).
 	// Optional, default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
@@ -1697,7 +1697,7 @@ type TokenHoldersOptions struct {
 	//   - "scaled": Human-readable amounts (e.g., 1.0)
 	//   - "both": Include both raw and scaled amounts
 	// Optional, default: "scaled"
-	UIAmountMode string `default:"raw"`
+	UIAmountMode string `default:"scaled"`
 
 	// Chains is the list of blockchain networks to query.
 	// If nil, queries all supported networks.
@@ -2007,19 +2007,19 @@ func (c *HTTPClient) GetWalletTxs(ctx context.Context, wallet string, opts *Wall
 //
 // Note: This endpoint is only available for Solana chain.
 type WalletNetWorthOptions struct {
-	// FilterValue filters tokens by minimum value in USD. Only tokens with value >= this will be returned. Default: nil
+	// FilterValue filters tokens by minimum value in USD. Only tokens with value >= this will be returned. Default: 0 (no filter)
 	FilterValue float64 `default:"0"`
 	// SortBy specifies the field to sort by. Options: "value", "amount". Default: "value"
 	SortBy string `default:"value"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
 	SortType string `default:"desc"`
 	// Limit is the maximum number of tokens to return. Default: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// Offset is the number of tokens to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -2116,17 +2116,17 @@ type SearchOptions struct {
 	SortBy string `default:"liquidity"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
 	SortType string `default:"desc"`
-	// VerifyToken filters to only show verified tokens if true. Default: nil (show all)
+	// VerifyToken filters to only show verified tokens if true. Default: false (show all)
 	VerifyToken bool `default:"false"`
-	// Markets filters by specific markets/exchanges. Comma-separated string. Default: nil
+	// Markets filters by specific markets/exchanges. Comma-separated string. Default: "" (no filter)
 	Markets string `default:""`
 	// Offset is the number of results to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of results to return. Default: 10
-	Limit int64 `default:"50"`
+	Limit int64 `default:"10"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
 	UIAmountMode string `default:"raw"`
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -2333,7 +2333,7 @@ type TokenTxsByTimeOptions struct {
 
 	// Limit is the maximum number of transactions to return (1-100).
 	// Optional, default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 
 	// TxType specifies the type of transactions to retrieve.
 	// Options:
@@ -2459,14 +2459,14 @@ func (c *HTTPClient) GetTokenTxsByTime(ctx context.Context, address string, opts
 
 // PairTxsByTimeOptions holds options for GetPairTxsByTime.
 type PairTxsByTimeOptions struct {
-	// AfterTime filters transactions after this Unix timestamp (seconds). Default: nil
+	// AfterTime filters transactions after this Unix timestamp (seconds). Default: 0 (no filter)
 	AfterTime int64 `default:"0"`
-	// BeforeTime filters transactions before this Unix timestamp (seconds). Default: nil
+	// BeforeTime filters transactions before this Unix timestamp (seconds). Default: 0 (no filter)
 	BeforeTime int64 `default:"0"`
 	// Offset is the number of transactions to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// TxType specifies the transaction type. Options: "swap", "add", "remove", "all". Default: "swap"
 	TxType string `default:"swap"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
@@ -2475,7 +2475,7 @@ type PairTxsByTimeOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -2573,32 +2573,32 @@ type TokenTxsV3Options struct {
 	// Offset is the number of transactions to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// SortBy specifies the field to sort by. Options: "block_unix_time", "block_number". Default: "block_unix_time"
 	SortBy string `default:"block_unix_time"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
 	SortType string `default:"desc"`
 	// TxType specifies the transaction type. Options: "swap", "add", "remove", "all". Default: "swap"
 	TxType string `default:"swap"`
-	// Source filters by DEX source (e.g., "raydium", "orca"). Default: nil
+	// Source filters by DEX source (e.g., "raydium", "orca"). Default: "" (no filter)
 	Source string `default:""`
-	// Owner filters by owner/wallet address. Default: nil
+	// Owner filters by owner/wallet address. Default: "" (no filter)
 	Owner string `default:""`
-	// PoolID filters by pool/pair ID. Default: nil
+	// PoolID filters by pool/pair ID. Default: "" (no filter)
 	PoolID string `default:""`
-	// BeforeTime filters transactions before this Unix timestamp (seconds). Default: nil
+	// BeforeTime filters transactions before this Unix timestamp (seconds). Default: 0 (no filter)
 	BeforeTime int64 `default:"0"`
-	// AfterTime filters transactions after this Unix timestamp (seconds). Default: nil
+	// AfterTime filters transactions after this Unix timestamp (seconds). Default: 0 (no filter)
 	AfterTime int64 `default:"0"`
-	// BeforeBlockNumber filters transactions before this block number. Default: nil
+	// BeforeBlockNumber filters transactions before this block number. Default: 0 (no filter)
 	BeforeBlockNumber int64 `default:"0"`
-	// AfterBlockNumber filters transactions after this block number. Default: nil
+	// AfterBlockNumber filters transactions after this block number. Default: 0 (no filter)
 	AfterBlockNumber int64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -2994,27 +2994,27 @@ type TokenListV3Options struct {
 	SortBy string `default:"liquidity"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
 	SortType string `default:"desc"`
-	// MinLiquidity filters tokens with liquidity >= this value in USD. Default: nil
+	// MinLiquidity filters tokens with liquidity >= this value in USD. Default: 0 (no filter)
 	MinLiquidity float64 `default:"0"`
-	// MaxLiquidity filters tokens with liquidity <= this value in USD. Default: nil
+	// MaxLiquidity filters tokens with liquidity <= this value in USD. Default: 0 (no filter)
 	MaxLiquidity float64 `default:"0"`
-	// MinMarketCap filters tokens with market cap >= this value in USD. Default: nil
+	// MinMarketCap filters tokens with market cap >= this value in USD. Default: 0 (no filter)
 	MinMarketCap float64 `default:"0"`
-	// MaxMarketCap filters tokens with market cap <= this value in USD. Default: nil
+	// MaxMarketCap filters tokens with market cap <= this value in USD. Default: 0 (no filter)
 	MaxMarketCap float64 `default:"0"`
-	// MinFDV filters tokens with fully diluted valuation >= this value in USD. Default: nil
+	// MinFDV filters tokens with fully diluted valuation >= this value in USD. Default: 0 (no filter)
 	MinFDV float64 `default:"0"`
-	// MaxFDV filters tokens with fully diluted valuation <= this value in USD. Default: nil
+	// MaxFDV filters tokens with fully diluted valuation <= this value in USD. Default: 0 (no filter)
 	MaxFDV float64 `default:"0"`
 	// Offset is the number of tokens to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of tokens to return (1-100). Default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -3117,7 +3117,7 @@ type TokenOverviewOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -3297,7 +3297,7 @@ type TrendingListOptions struct {
 
 	// Limit is the maximum number of tokens to return (1-20).
 	// Optional, default: 20, max: 20
-	Limit int64 `default:"50"`
+	Limit int64 `default:"20"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options: "raw", "scaled", "both"
@@ -3383,15 +3383,15 @@ func (c *HTTPClient) GetTokenTrendingList(ctx context.Context, opts *TrendingLis
 
 // NewListingOptions holds options for GetNewListing.
 type NewListingOptions struct {
-	// TimeTo filters listings before this Unix timestamp (seconds). Default: nil (current time)
+	// TimeTo filters listings before this Unix timestamp (seconds). Default: 0 (current time)
 	TimeTo int64 `default:"0"`
 	// Limit is the maximum number of listings to return (1-20). Default: 20, max: 20
-	Limit int64 `default:"50"`
+	Limit int64 `default:"20"`
 	// MemePlatformEnabled includes meme platform tokens if true. Default: false
 	MemePlatformEnabled bool `default:"false"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -3475,7 +3475,7 @@ type WalletTradesOptions struct {
 	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of trades to return (1-100). Optional, default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 
 	// BeforeTime filters trades before this Unix timestamp. Optional, default: nil
 	BeforeTime int64 `default:"0"`
@@ -3806,7 +3806,7 @@ type TokenTopTradersOptions struct {
 	Offset int64 `default:"0"`
 
 	// Limit is the maximum number of traders to return (1-10). Default: 10, max: 10
-	Limit int64 `default:"50"`
+	Limit int64 `default:"10"`
 
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
 	UIAmountMode string `default:"raw"`
@@ -3814,7 +3814,7 @@ type TokenTopTradersOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
 
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -3908,10 +3908,10 @@ type TokenAllMarketListOptions struct {
 	// Offset is the number of markets to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of markets to return (1-20). Default: 20, max: 20
-	Limit int64 `default:"50"`
+	Limit int64 `default:"20"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4001,10 +4001,10 @@ type GainersLosersOptions struct {
 	// Offset is the number of traders to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of traders to return (1-10). Default: 10, max: 10
-	Limit int64 `default:"50"`
+	Limit int64 `default:"10"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4085,7 +4085,7 @@ type TokenAllTimeTradesOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4246,7 +4246,7 @@ type TokenPriceVolumeOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4391,7 +4391,7 @@ type TokenPriceHistoriesOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4561,7 +4561,7 @@ type TokenOHLCVV3Options struct {
 	// Mode specifies the query mode. Options: "range" (by time range), "count" (by count). Default: "range"
 	Mode string `default:"range"`
 	// CountLimit is the maximum number of OHLCV data points when mode is "count". Default: 5000
-	CountLimit int64 `default:"50"`
+	CountLimit int64 `default:"5000"`
 	// Padding adds empty candles for missing time periods if true. Default: false
 	Padding bool `default:"false"`
 	// Outlier includes outlier detection data if true. Default: true
@@ -4570,7 +4570,7 @@ type TokenOHLCVV3Options struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4728,7 +4728,7 @@ type TokenPriceStatsOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4863,17 +4863,17 @@ type TokenMintBurnTxsOptions struct {
 	SortType string `default:"desc"`
 	// Type specifies the transaction type filter. Options: "mint", "burn", "all". Default: "all"
 	Type string `default:"all"`
-	// AfterTime filters transactions after this Unix timestamp. Default: nil
+	// AfterTime filters transactions after this Unix timestamp. Default: 0 (no filter)
 	AfterTime int64 `default:"0"`
-	// BeforeTime filters transactions before this Unix timestamp. Default: nil
+	// BeforeTime filters transactions before this Unix timestamp. Default: 0 (no filter)
 	BeforeTime int64 `default:"0"`
 	// Offset is the number of transactions to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return. Default: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -4945,7 +4945,7 @@ func (c *HTTPClient) GetTokenMintBurnTxs(ctx context.Context, address string, op
 type TokenExitLiquidityOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5053,19 +5053,19 @@ type MemeListOptions struct {
 	SortType string `default:"desc"`
 	// Source specifies the platform source. Options: "all", "pump_dot_fun". Default: "all"
 	Source string `default:"all"`
-	// Creator filters by creator address. Default: nil
+	// Creator filters by creator address. Default: "" (no filter)
 	Creator string `default:""`
-	// PlatformID filters by platform ID. Default: nil
+	// PlatformID filters by platform ID. Default: "" (no filter)
 	PlatformID string `default:""`
-	// Graduated filters by graduation status. Default: nil
+	// Graduated filters by graduation status. Default: false (no filter)
 	Graduated bool `default:"false"`
 	// Offset is the number of items to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of items to return. Default: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5130,7 +5130,7 @@ func (c *HTTPClient) GetMemeList(ctx context.Context, opts *MemeListOptions) (*R
 type MemeDetailOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5188,7 +5188,7 @@ func (c *HTTPClient) GetMemeDetail(ctx context.Context, address string, opts *Me
 type WalletTokensPnLOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5294,7 +5294,7 @@ func (c *HTTPClient) GetWalletsPnLByToken(ctx context.Context, tokenAddress stri
 type WalletTokensBalanceOptions struct {
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5396,19 +5396,19 @@ func (c *HTTPClient) GetWalletTokenFirstTx(ctx context.Context, wallets []string
 
 // WalletNetWorthDetailsOptions holds options for GetWalletNetWorthDetails. Note: Solana only.
 type WalletNetWorthDetailsOptions struct {
-	// Time is the reference time for the query. Default: nil (current time)
+	// Time is the reference time for the query. Default: "" (current time)
 	Time string `default:""`
 	// Type specifies the time interval. Options: "1d", "1w", "1m". Default: "1d"
 	Type string `default:"1d"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
 	SortType string `default:"desc"`
 	// Limit is the maximum number of items to return (1-100). Default: 20, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"20"`
 	// Offset is the number of items to skip for pagination (0-10000). Default: 0, max: 10000
 	Offset int64 `default:"0"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5484,7 +5484,7 @@ type TokenHolderBatchOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5557,13 +5557,13 @@ type TokenListV1Options struct {
 	Limit int64 `default:"50"`
 	// MinLiquidity is the minimum liquidity filter in USD. Default: 100
 	MinLiquidity float64
-	// MaxLiquidity is the maximum liquidity filter in USD. Default: nil
+	// MaxLiquidity is the maximum liquidity filter in USD. Default: 0 (no filter)
 	MaxLiquidity float64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5630,32 +5630,32 @@ type AllTxsV3Options struct {
 	// Offset is the number of transactions to skip for pagination. Default: 0
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// SortBy specifies the field to sort by. Options: "block_unix_time", "block_number". Default: "block_unix_time"
 	SortBy string `default:"block_unix_time"`
 	// SortType specifies the sort order. Options: "desc", "asc". Default: "desc"
 	SortType string `default:"desc"`
 	// TxType specifies the transaction type filter. Options: "swap", "add", "remove", "all". Default: "swap"
 	TxType string `default:"swap"`
-	// Source filters by DEX source. Default: nil
+	// Source filters by DEX source. Default: "" (no filter)
 	Source string `default:""`
-	// Owner filters by owner address. Default: nil
+	// Owner filters by owner address. Default: "" (no filter)
 	Owner string `default:""`
-	// PoolID filters by pool ID. Default: nil
+	// PoolID filters by pool ID. Default: "" (no filter)
 	PoolID string `default:""`
-	// BeforeTime filters transactions before this Unix timestamp. Default: nil
+	// BeforeTime filters transactions before this Unix timestamp. Default: 0 (no filter)
 	BeforeTime int64 `default:"0"`
-	// AfterTime filters transactions after this Unix timestamp. Default: nil
+	// AfterTime filters transactions after this Unix timestamp. Default: 0 (no filter)
 	AfterTime int64 `default:"0"`
-	// BeforeBlockNumber filters transactions before this block number. Default: nil
+	// BeforeBlockNumber filters transactions before this block number. Default: 0 (no filter)
 	BeforeBlockNumber int64 `default:"0"`
-	// AfterBlockNumber filters transactions after this block number. Default: nil
+	// AfterBlockNumber filters transactions after this block number. Default: 0 (no filter)
 	AfterBlockNumber int64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "scaled"
-	UIAmountMode string `default:"raw"`
+	UIAmountMode string `default:"scaled"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5740,24 +5740,24 @@ type RecentTxsV3Options struct {
 	// Offset is the number of transactions to skip for pagination (0-9999). Default: 0, max: 9999
 	Offset int64 `default:"0"`
 	// Limit is the maximum number of transactions to return (1-100). Default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 	// TxType specifies the transaction type filter. Options: "swap", "add", "remove", "all". Default: "swap"
 	TxType string `default:"swap"`
-	// Owner filters by owner address. Default: nil
+	// Owner filters by owner address. Default: "" (no filter)
 	Owner string `default:""`
-	// BeforeTime filters transactions before this Unix timestamp. Default: nil
+	// BeforeTime filters transactions before this Unix timestamp. Default: 0 (no filter)
 	BeforeTime int64 `default:"0"`
-	// AfterTime filters transactions after this Unix timestamp. Default: nil
+	// AfterTime filters transactions after this Unix timestamp. Default: 0 (no filter)
 	AfterTime int64 `default:"0"`
-	// BeforeBlockNumber filters transactions before this block number. Default: nil
+	// BeforeBlockNumber filters transactions before this block number. Default: 0 (no filter)
 	BeforeBlockNumber int64 `default:"0"`
-	// AfterBlockNumber filters transactions after this block number. Default: nil
+	// AfterBlockNumber filters transactions after this block number. Default: 0 (no filter)
 	AfterBlockNumber int64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5844,7 +5844,7 @@ type OHLCVBaseQuoteOptions struct {
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
 	Chains []Chain
-	// OnLimitExceeded overrides the default rate limit behavior. Default: nil
+	// OnLimitExceeded overrides the default rate limit behavior. Default: "" (use client default)
 	OnLimitExceeded string `default:""`
 }
 
@@ -5936,7 +5936,7 @@ type TokenListV3ScrollOptions struct {
 	// Limit is the maximum number of tokens to return per page (1-5000).
 	// Higher limits allow fetching more data per request but use more quota.
 	// Optional, default: 5000, max: 5000
-	Limit int64 `default:"50"`
+	Limit int64 `default:"5000"`
 
 	// ScrollID is the pagination cursor from the previous response.
 	// Use the scroll_id from the previous response to get the next page.
@@ -6084,7 +6084,7 @@ type WalletBalanceChangesOptions struct {
 
 	// Limit is the maximum number of balance changes to return (1-100).
 	// Optional, default: 100, max: 100
-	Limit int64 `default:"50"`
+	Limit int64 `default:"100"`
 
 	// UIAmountMode specifies the token amount display mode.
 	// Options:
