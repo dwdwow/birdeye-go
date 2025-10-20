@@ -296,25 +296,38 @@ type TokenInfo struct {
 	UIChangeAmount float64 `json:"ui_change_amount" bson:"ui_change_amount"`
 }
 
+type LiquidityTokenInfo struct {
+	Symbol   string  `json:"symbol" bson:"symbol"`
+	Address  string  `json:"address" bson:"address"`
+	Decimals int64   `json:"decimals" bson:"decimals"`
+	Amount   string  `json:"amount" bson:"amount"`
+	UIAmount float64 `json:"ui_amount" bson:"ui_amount"`
+}
+
 // RespTokenTxsItemV3 represents a single token transaction in V3 API
 type RespTokenTxsItemV3 struct {
-	TxType        TxType    `json:"tx_type" bson:"tx_type"`
-	TxHash        string    `json:"tx_hash" bson:"tx_hash"`
-	InsIndex      int64     `json:"ins_index" bson:"ins_index"`
-	InnerInsIndex int64     `json:"inner_ins_index" bson:"inner_ins_index"`
-	BlockUnixTime int64     `json:"block_unix_time" bson:"block_unix_time"`
-	BlockNumber   int64     `json:"block_number" bson:"block_number"`
-	VolumeUSD     float64   `json:"volume_usd" bson:"volume_usd"`
-	Volume        float64   `json:"volume" bson:"volume"`
-	Owner         string    `json:"owner" bson:"owner"`
-	Signers       []string  `json:"signers" bson:"signers"`
-	Source        string    `json:"source" bson:"source"`
-	Side          TradeSide `json:"side" bson:"side"`
-	Alias         *string   `json:"alias" bson:"alias"`
-	PricePair     float64   `json:"price_pair" bson:"price_pair"`
-	From          TokenInfo `json:"from" bson:"from"`
-	To            TokenInfo `json:"to" bson:"to"`
-	PoolID        string    `json:"pool_id" bson:"pool_id"`
+	TxType              TxType    `json:"tx_type" bson:"tx_type"`
+	TxHash              string    `json:"tx_hash" bson:"tx_hash"`
+	InsIndex            int64     `json:"ins_index" bson:"ins_index"`
+	InnerInsIndex       int64     `json:"inner_ins_index" bson:"inner_ins_index"`
+	BlockUnixTime       int64     `json:"block_unix_time" bson:"block_unix_time"`
+	BlockNumber         int64     `json:"block_number" bson:"block_number"`
+	VolumeUSD           float64   `json:"volume_usd" bson:"volume_usd"`
+	Volume              float64   `json:"volume" bson:"volume"`
+	Owner               string    `json:"owner" bson:"owner"`
+	Signers             []string  `json:"signers" bson:"signers"`
+	Source              string    `json:"source" bson:"source"`
+	Side                TradeSide `json:"side" bson:"side"`
+	InteractedProgramID string    `json:"interacted_program_id" bson:"interacted_program_id"`
+	Alias               *string   `json:"alias" bson:"alias"`
+	PricePair           float64   `json:"price_pair" bson:"price_pair"`
+	// From just for buy and sell tx type
+	From TokenInfo `json:"from" bson:"from"`
+	// To just for buy and sell tx type
+	To TokenInfo `json:"to" bson:"to"`
+	// Tokens just for add and remove tx type
+	Tokens []LiquidityTokenInfo `json:"tokens" bson:"tokens"`
+	PoolID string               `json:"pool_id" bson:"pool_id"`
 }
 
 // RespTokenTxsV3 represents the response for token transactions V3

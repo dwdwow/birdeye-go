@@ -2,6 +2,7 @@ package birdeye
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -27,6 +28,19 @@ func getTestClient(t *testing.T) *HTTPClient {
 	client := NewHTTPClient(HTTPClientConfig{
 		APIKey: apiKey,
 		Chains: []Chain{ChainSolana},
+	})
+	return client
+}
+
+func getTestBSCClient(t *testing.T) *HTTPClient {
+	apiKey := os.Getenv("BIRDEYE_API_KEY")
+	if apiKey == "" {
+		t.Skip("BIRDEYE_API_KEY environment variable not set")
+	}
+
+	client := NewHTTPClient(HTTPClientConfig{
+		APIKey: apiKey,
+		Chains: []Chain{ChainBSC},
 	})
 	return client
 }
@@ -305,15 +319,21 @@ func TestGetTokenTxsByTime(t *testing.T) {
 }
 
 func TestGetTokenTxsV3(t *testing.T) {
-	client := getTestClient(t)
+	client := getTestBSCClient(t)
 	ctx := context.Background()
 
-	txs, err := client.GetTokenTxsV3(ctx, testTokenSOL, &TokenTxsV3Options{
-		Limit: 10,
+	txs, err := client.GetTokenTxsV3(ctx, "0x924fa68a0FC644485b8df8AbfA0A41C2e7744444", &TokenTxsV3Options{
+		Limit:             10,
+		SortBy:            "block_number",
+		AfterBlockNumber:  63463817,
+		BeforeBlockNumber: 63463819,
+		TxType:            "add",
 	})
 	if err != nil {
 		t.Fatalf("GetTokenTxsV3 failed: %v", err)
 	}
+
+	fmt.Printf("%+v\n", txs)
 
 	t.Logf("Retrieved %d transactions (V3)", len(txs.Items))
 }
