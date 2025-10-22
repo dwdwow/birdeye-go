@@ -468,16 +468,20 @@ type WsDataLargeTradeTxsTokenInfo struct {
 
 // WsDataLargeTradeTxs represents large trade transaction data
 type WsDataLargeTradeTxs struct {
-	BlockUnixTime  int64                        `json:"blockUnixTime"`
-	BlockHumanTime string                       `json:"blockHumanTime"`
-	Owner          string                       `json:"owner"`
-	Source         string                       `json:"source"`
-	PoolAddress    string                       `json:"poolAddress"`
-	TxHash         string                       `json:"txHash"`
-	VolumeUSD      float64                      `json:"volumeUSD"`
-	Network        string                       `json:"network"`
-	From           WsDataLargeTradeTxsTokenInfo `json:"from"`
-	To             WsDataLargeTradeTxsTokenInfo `json:"to"`
+	BlockUnixTime       int64                        `json:"blockUnixTime"`
+	BlockHumanTime      string                       `json:"blockHumanTime"`
+	Owner               string                       `json:"owner"`
+	Source              string                       `json:"source"`
+	PoolAddress         string                       `json:"poolAddress"`
+	TxHash              string                       `json:"txHash"`
+	VolumeUSD           float64                      `json:"volumeUSD"`
+	Network             string                       `json:"network"`
+	From                WsDataLargeTradeTxsTokenInfo `json:"from"`
+	To                  WsDataLargeTradeTxsTokenInfo `json:"to"`
+	InteractedProgramID string                       `json:"interactedProgramId"`
+	LogIndex            int64                        `json:"logIndex"`
+	InsIndex            int64                        `json:"insIndex"`
+	BlockNumber         int64                        `json:"blockNumber"`
 }
 
 // WsDataWalletMintAddLiquidityTxTokenInfo represents token info in wallet mint/add liquidity tx
