@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -357,220 +358,220 @@ func (s *SubDataTokenStats) Payload() ([]byte, error) {
 
 // WsData represents a generic WebSocket message
 type WsData struct {
-	Type WsDataType      `json:"type"`
-	Data json.RawMessage `json:"data"`
+	Type WsDataType      `json:"type" bson:"type"`
+	Data json.RawMessage `json:"data" bson:"data"`
 }
 
 // WsDataPrice represents price data from WebSocket
 type WsDataPrice struct {
-	O         float64        `json:"o"`         // Open price
-	H         float64        `json:"h"`         // High price
-	L         float64        `json:"l"`         // Low price
-	C         float64        `json:"c"`         // Close price
-	EventType string         `json:"eventType"` // Should be "ohlcv"
-	Type      WsIntervalType `json:"type"`      // Interval type
-	UnixTime  int64          `json:"unixTime"`
-	V         float64        `json:"v"` // Volume
-	Symbol    string         `json:"symbol"`
-	Address   string         `json:"address"`
+	O         float64        `json:"o" bson:"o"`                 // Open price
+	H         float64        `json:"h" bson:"h"`                 // High price
+	L         float64        `json:"l" bson:"l"`                 // Low price
+	C         float64        `json:"c" bson:"c"`                 // Close price
+	EventType string         `json:"eventType" bson:"eventType"` // Should be "ohlcv"
+	Type      WsIntervalType `json:"type" bson:"type"`           // Interval type
+	UnixTime  int64          `json:"unixTime" bson:"unixTime"`
+	V         float64        `json:"v" bson:"v"` // Volume
+	Symbol    string         `json:"symbol" bson:"symbol"`
+	Address   string         `json:"address" bson:"address"`
 }
 
 // WsDataTxsTokenInfo represents token info in transaction data
 type WsDataTxsTokenInfo struct {
-	Address        string   `json:"address"`
-	Amount         int64    `json:"amount"`
-	ChangeAmount   int64    `json:"changeAmount"`
-	Decimals       int64    `json:"decimals"`
-	NearestPrice   float64  `json:"nearestPrice"`
-	Price          *float64 `json:"price"`
-	Symbol         string   `json:"symbol"`
-	Type           string   `json:"type"`
-	TypeSwap       string   `json:"typeSwap"`
-	UIAmount       float64  `json:"uiAmount"`
-	UIChangeAmount float64  `json:"uiChangeAmount"`
-	FeeInfo        any      `json:"feeInfo,omitempty"`
+	Address        string   `json:"address" bson:"address"`
+	Amount         int64    `json:"amount" bson:"amount"`
+	ChangeAmount   int64    `json:"changeAmount" bson:"changeAmount"`
+	Decimals       int64    `json:"decimals" bson:"decimals"`
+	NearestPrice   float64  `json:"nearestPrice" bson:"nearestPrice"`
+	Price          *float64 `json:"price" bson:"price"`
+	Symbol         string   `json:"symbol" bson:"symbol"`
+	Type           string   `json:"type" bson:"type"`
+	TypeSwap       string   `json:"typeSwap" bson:"typeSwap"`
+	UIAmount       float64  `json:"uiAmount" bson:"uiAmount"`
+	UIChangeAmount float64  `json:"uiChangeAmount" bson:"uiChangeAmount"`
+	FeeInfo        any      `json:"feeInfo,omitempty" bson:"feeInfo,omitempty"`
 }
 
 // WsDataTxs represents transaction data from WebSocket
 type WsDataTxs struct {
-	BlockUnixTime int64              `json:"blockUnixTime"`
-	Owner         string             `json:"owner"`
-	Source        string             `json:"source"`
-	TxHash        string             `json:"txHash"`
-	Side          string             `json:"side"` // "buy" or "sell"
-	TokenAddress  string             `json:"tokenAddress"`
-	Alias         *string            `json:"alias"`
-	IsTradeOnBe   bool               `json:"isTradeOnBe"`
-	Platform      string             `json:"platform"`
-	PricePair     float64            `json:"pricePair"`
-	VolumeUSD     float64            `json:"volumeUSD"`
-	From          WsDataTxsTokenInfo `json:"from"`
-	To            WsDataTxsTokenInfo `json:"to"`
-	PriceMark     bool               `json:"priceMark"`
-	TokenPrice    float64            `json:"tokenPrice"`
-	Network       string             `json:"network"`
-	PoolID        string             `json:"poolId"`
+	BlockUnixTime int64              `json:"blockUnixTime" bson:"blockUnixTime"`
+	Owner         string             `json:"owner" bson:"owner"`
+	Source        string             `json:"source" bson:"source"`
+	TxHash        string             `json:"txHash" bson:"txHash"`
+	Side          string             `json:"side" bson:"side"` // "buy" or "sell"
+	TokenAddress  string             `json:"tokenAddress" bson:"tokenAddress"`
+	Alias         *string            `json:"alias" bson:"alias"`
+	IsTradeOnBe   bool               `json:"isTradeOnBe" bson:"isTradeOnBe"`
+	Platform      string             `json:"platform" bson:"platform"`
+	PricePair     float64            `json:"pricePair" bson:"pricePair"`
+	VolumeUSD     float64            `json:"volumeUSD" bson:"volumeUSD"`
+	From          WsDataTxsTokenInfo `json:"from" bson:"from"`
+	To            WsDataTxsTokenInfo `json:"to" bson:"to"`
+	PriceMark     bool               `json:"priceMark" bson:"priceMark"`
+	TokenPrice    float64            `json:"tokenPrice" bson:"tokenPrice"`
+	Network       string             `json:"network" bson:"network"`
+	PoolID        string             `json:"poolId" bson:"poolId"`
 }
 
 // WsDataBaseQuotePrice represents base/quote price data from WebSocket
 type WsDataBaseQuotePrice struct {
-	O            float64        `json:"o"`            // Open price
-	H            float64        `json:"h"`            // High price
-	L            float64        `json:"l"`            // Low price
-	C            float64        `json:"c"`            // Close price
-	EventType    string         `json:"eventType"`    // Should be "ohlcv"
-	Type         WsIntervalType `json:"type"`         // Time interval
-	UnixTime     int64          `json:"unixTime"`     // Unix timestamp
-	V            float64        `json:"v"`            // Volume
-	BaseAddress  string         `json:"baseAddress"`  // Base token address
-	QuoteAddress string         `json:"quoteAddress"` // Quote token address
+	O            float64        `json:"o" bson:"o"`                       // Open price
+	H            float64        `json:"h" bson:"h"`                       // High price
+	L            float64        `json:"l" bson:"l"`                       // Low price
+	C            float64        `json:"c" bson:"c"`                       // Close price
+	EventType    string         `json:"eventType" bson:"eventType"`       // Should be "ohlcv"
+	Type         WsIntervalType `json:"type" bson:"type"`                 // Time interval
+	UnixTime     int64          `json:"unixTime" bson:"unixTime"`         // Unix timestamp
+	V            float64        `json:"v" bson:"v"`                       // Volume
+	BaseAddress  string         `json:"baseAddress" bson:"baseAddress"`   // Base token address
+	QuoteAddress string         `json:"quoteAddress" bson:"quoteAddress"` // Quote token address
 }
 
 // WsDataTokenNewListing represents new token listing data
 type WsDataTokenNewListing struct {
-	Address          string `json:"address"`
-	Decimals         int64  `json:"decimals"`
-	Name             string `json:"name"`
-	Symbol           string `json:"symbol"`
-	Liquidity        string `json:"liquidity"`
-	LiquidityAddedAt int64  `json:"liquidityAddedAt"`
+	Address          string `json:"address" bson:"address"`
+	Decimals         int64  `json:"decimals" bson:"decimals"`
+	Name             string `json:"name" bson:"name"`
+	Symbol           string `json:"symbol" bson:"symbol"`
+	Liquidity        string `json:"liquidity" bson:"liquidity"`
+	LiquidityAddedAt int64  `json:"liquidityAddedAt" bson:"liquidityAddedAt"`
 }
 
 // WsDataNewPairTokenInfo represents token info in new pair data
 type WsDataNewPairTokenInfo struct {
-	Address  string `json:"address"`
-	Name     string `json:"name"`
-	Symbol   string `json:"symbol"`
-	Decimals int64  `json:"decimals"`
+	Address  string `json:"address" bson:"address"`
+	Name     string `json:"name" bson:"name"`
+	Symbol   string `json:"symbol" bson:"symbol"`
+	Decimals int64  `json:"decimals" bson:"decimals"`
 }
 
 // WsDataNewPair represents new pair data from WebSocket
 type WsDataNewPair struct {
-	Address   string                 `json:"address"`
-	Name      string                 `json:"name"`
-	Source    string                 `json:"source"`
-	Base      WsDataNewPairTokenInfo `json:"base"`
-	Quote     WsDataNewPairTokenInfo `json:"quote"`
-	TxHash    string                 `json:"txHash"`
-	BlockTime int64                  `json:"blockTime"`
+	Address   string                 `json:"address" bson:"address"`
+	Name      string                 `json:"name" bson:"name"`
+	Source    string                 `json:"source" bson:"source"`
+	Base      WsDataNewPairTokenInfo `json:"base" bson:"base"`
+	Quote     WsDataNewPairTokenInfo `json:"quote" bson:"quote"`
+	TxHash    string                 `json:"txHash" bson:"txHash"`
+	BlockTime int64                  `json:"blockTime" bson:"blockTime"`
 }
 
 // WsDataLargeTradeTxsTokenInfo represents token info in large trade data
 type WsDataLargeTradeTxsTokenInfo struct {
-	Symbol         string   `json:"symbol"`
-	Decimals       int64    `json:"decimals"`
-	Address        string   `json:"address"`
-	UIAmount       float64  `json:"uiAmount"`
-	Price          *float64 `json:"price"`
-	NearestPrice   float64  `json:"nearestPrice"`
-	UIChangeAmount float64  `json:"uiChangeAmount"`
+	Symbol         string   `json:"symbol" bson:"symbol"`
+	Decimals       int64    `json:"decimals" bson:"decimals"`
+	Address        string   `json:"address" bson:"address"`
+	UIAmount       float64  `json:"uiAmount" bson:"uiAmount"`
+	Price          *float64 `json:"price" bson:"price"`
+	NearestPrice   float64  `json:"nearestPrice" bson:"nearestPrice"`
+	UIChangeAmount float64  `json:"uiChangeAmount" bson:"uiChangeAmount"`
 }
 
 // WsDataLargeTradeTxs represents large trade transaction data
 type WsDataLargeTradeTxs struct {
-	BlockUnixTime       int64                        `json:"blockUnixTime"`
-	BlockHumanTime      string                       `json:"blockHumanTime"`
-	Owner               string                       `json:"owner"`
-	Source              string                       `json:"source"`
-	PoolAddress         string                       `json:"poolAddress"`
-	TxHash              string                       `json:"txHash"`
-	VolumeUSD           float64                      `json:"volumeUSD"`
-	Network             string                       `json:"network"`
-	From                WsDataLargeTradeTxsTokenInfo `json:"from"`
-	To                  WsDataLargeTradeTxsTokenInfo `json:"to"`
-	InteractedProgramID string                       `json:"interactedProgramId"`
-	LogIndex            int64                        `json:"logIndex"`
-	InsIndex            int64                        `json:"insIndex"`
-	BlockNumber         int64                        `json:"blockNumber"`
+	BlockUnixTime       int64                        `json:"blockUnixTime" bson:"blockUnixTime"`
+	BlockHumanTime      string                       `json:"blockHumanTime" bson:"blockHumanTime"`
+	Owner               string                       `json:"owner" bson:"owner"`
+	Source              string                       `json:"source" bson:"source"`
+	PoolAddress         string                       `json:"poolAddress" bson:"poolAddress"`
+	TxHash              string                       `json:"txHash" bson:"txHash"`
+	VolumeUSD           float64                      `json:"volumeUSD" bson:"volumeUSD"`
+	Network             string                       `json:"network" bson:"network"`
+	From                WsDataLargeTradeTxsTokenInfo `json:"from" bson:"from"`
+	To                  WsDataLargeTradeTxsTokenInfo `json:"to" bson:"to"`
+	InteractedProgramID string                       `json:"interactedProgramId" bson:"interactedProgramId"`
+	LogIndex            int64                        `json:"logIndex" bson:"logIndex"`
+	InsIndex            int64                        `json:"insIndex" bson:"insIndex"`
+	BlockNumber         int64                        `json:"blockNumber" bson:"blockNumber"`
 }
 
 // WsDataWalletMintAddLiquidityTxTokenInfo represents token info in wallet mint/add liquidity tx
 type WsDataWalletMintAddLiquidityTxTokenInfo struct {
-	Symbol   string  `json:"symbol"`
-	Decimals int64   `json:"decimals"`
-	Address  string  `json:"address"`
-	UIAmount float64 `json:"uiAmount"`
+	Symbol   string  `json:"symbol" bson:"symbol"`
+	Decimals int64   `json:"decimals" bson:"decimals"`
+	Address  string  `json:"address" bson:"address"`
+	UIAmount float64 `json:"uiAmount" bson:"uiAmount"`
 }
 
 // WsDataWalletMintAddLiquidityTx represents wallet mint/add liquidity transaction
 type WsDataWalletMintAddLiquidityTx struct {
-	Type           string                                  `json:"type"`
-	BlockUnixTime  int64                                   `json:"blockUnixTime"`
-	BlockHumanTime string                                  `json:"blockHumanTime"`
-	Owner          string                                  `json:"owner"`
-	Source         string                                  `json:"source"`
-	TxHash         string                                  `json:"txHash"`
-	VolumeUSD      float64                                 `json:"volumeUSD"`
-	Network        string                                  `json:"network"`
-	Base           WsDataWalletMintAddLiquidityTxTokenInfo `json:"base"`
-	Quote          WsDataWalletMintAddLiquidityTxTokenInfo `json:"quote"`
+	Type           string                                  `json:"type" bson:"type"`
+	BlockUnixTime  int64                                   `json:"blockUnixTime" bson:"blockUnixTime"`
+	BlockHumanTime string                                  `json:"blockHumanTime" bson:"blockHumanTime"`
+	Owner          string                                  `json:"owner" bson:"owner"`
+	Source         string                                  `json:"source" bson:"source"`
+	TxHash         string                                  `json:"txHash" bson:"txHash"`
+	VolumeUSD      float64                                 `json:"volumeUSD" bson:"volumeUSD"`
+	Network        string                                  `json:"network" bson:"network"`
+	Base           WsDataWalletMintAddLiquidityTxTokenInfo `json:"base" bson:"base"`
+	Quote          WsDataWalletMintAddLiquidityTxTokenInfo `json:"quote" bson:"quote"`
 }
 
 // WsDataWalletSwapTxTokenInfo represents token info in wallet swap tx
 type WsDataWalletSwapTxTokenInfo struct {
-	Symbol         string  `json:"symbol"`
-	Decimals       int64   `json:"decimals"`
-	Address        string  `json:"address"`
-	UIAmount       float64 `json:"uiAmount"`
-	Amount         int64   `json:"amount"`
-	Price          float64 `json:"price"`
-	NearestPrice   float64 `json:"nearestPrice"`
-	UIChangeAmount float64 `json:"uiChangeAmount"`
+	Symbol         string  `json:"symbol" bson:"symbol"`
+	Decimals       int64   `json:"decimals" bson:"decimals"`
+	Address        string  `json:"address" bson:"address"`
+	UIAmount       float64 `json:"uiAmount" bson:"uiAmount"`
+	Amount         int64   `json:"amount" bson:"amount"`
+	Price          float64 `json:"price" bson:"price"`
+	NearestPrice   float64 `json:"nearestPrice" bson:"nearestPrice"`
+	UIChangeAmount float64 `json:"uiChangeAmount" bson:"uiChangeAmount"`
 }
 
 // WsDataWalletSwapTx represents wallet swap transaction
 type WsDataWalletSwapTx struct {
-	Type                string                      `json:"type"`
-	BlockUnixTime       int64                       `json:"blockUnixTime"`
-	BlockHumanTime      string                      `json:"blockHumanTime"`
-	Owner               string                      `json:"owner"`
-	Source              string                      `json:"source"`
-	PoolAddress         string                      `json:"poolAddress"`
-	TxHash              string                      `json:"txHash"`
-	VolumeUSD           float64                     `json:"volumeUSD"`
-	Network             string                      `json:"network"`
-	From                WsDataWalletSwapTxTokenInfo `json:"from"`
-	To                  WsDataWalletSwapTxTokenInfo `json:"to"`
-	InteractedProgramID string                      `json:"interactedProgramId"`
-	LogIndex            int64                       `json:"logIndex"`
-	InsIndex            int64                       `json:"insIndex"`
-	BlockNumber         int64                       `json:"blockNumber"`
+	Type                string                      `json:"type" bson:"type"`
+	BlockUnixTime       int64                       `json:"blockUnixTime" bson:"blockUnixTime"`
+	BlockHumanTime      string                      `json:"blockHumanTime" bson:"blockHumanTime"`
+	Owner               string                      `json:"owner" bson:"owner"`
+	Source              string                      `json:"source" bson:"source"`
+	PoolAddress         string                      `json:"poolAddress" bson:"poolAddress"`
+	TxHash              string                      `json:"txHash" bson:"txHash"`
+	VolumeUSD           float64                     `json:"volumeUSD" bson:"volumeUSD"`
+	Network             string                      `json:"network" bson:"network"`
+	From                WsDataWalletSwapTxTokenInfo `json:"from" bson:"from"`
+	To                  WsDataWalletSwapTxTokenInfo `json:"to" bson:"to"`
+	InteractedProgramID string                      `json:"interactedProgramId" bson:"interactedProgramId"`
+	LogIndex            int64                       `json:"logIndex" bson:"logIndex"`
+	InsIndex            int64                       `json:"insIndex" bson:"insIndex"`
+	BlockNumber         int64                       `json:"blockNumber" bson:"blockNumber"`
 }
 
 // WsDataTokenStats represents token statistics data
 type WsDataTokenStats struct {
-	Price                      float64 `json:"price"`
-	LastTradeHumanTime         string  `json:"last_trade_human_time"`
-	LastTradeUnixTime          int64   `json:"last_trade_unix_time"`
-	CirculatingSupply          float64 `json:"circulating_supply"`
-	TotalSupply                float64 `json:"total_supply"`
-	FDV                        float64 `json:"fdv"`
-	MarketCap                  float64 `json:"marketcap"`
-	Liquidity                  float64 `json:"liquidity"`
-	Volume30mUSD               float64 `json:"volume_30m_usd"`
-	Volume30m                  float64 `json:"volume_30m"`
-	VolumeBuy30m               float64 `json:"volume_buy_30m"`
-	VolumeBuy30mUSD            float64 `json:"volume_buy_30m_usd"`
-	VolumeSell30m              float64 `json:"volume_sell_30m"`
-	VolumeSell30mUSD           float64 `json:"volume_sell_30m_usd"`
-	Trade30m                   int64   `json:"trade_30m"`
-	Buy30m                     int64   `json:"buy_30m"`
-	Sell30m                    int64   `json:"sell_30m"`
-	VolumeHistory30m           float64 `json:"volume_history_30m"`
-	VolumeHistory30mUSD        float64 `json:"volume_history_30m_usd"`
-	VolumeSellHistory30mUSD    float64 `json:"volume_sell_history_30m_usd"`
-	VolumeBuyHistory30mUSD     float64 `json:"volume_buy_history_30m_usd"`
-	PriceChange30mPercent      float64 `json:"price_change_30m_percent"`
-	TradeHistory30m            int64   `json:"trade_history_30m"`
-	BuyHistory30m              int64   `json:"buy_history_30m"`
-	SellHistory30m             int64   `json:"sell_history_30m"`
-	Trade30mChangePercent      float64 `json:"trade_30m_change_percent"`
-	Buy30mChangePercent        float64 `json:"buy_30m_change_percent"`
-	Sell30mChangePercent       float64 `json:"sell_30m_change_percent"`
-	Volume30mChangePercent     float64 `json:"volume_30m_change_percent"`
-	VolumeBuy30mChangePercent  float64 `json:"volume_buy_30m_change_percent"`
-	VolumeSell30mChangePercent float64 `json:"volume_sell_30m_change_percent"`
-	UniqueWallet30m            int64   `json:"unique_wallet_30m"`
+	Price                      float64 `json:"price" bson:"price"`
+	LastTradeHumanTime         string  `json:"last_trade_human_time" bson:"last_trade_human_time"`
+	LastTradeUnixTime          int64   `json:"last_trade_unix_time" bson:"last_trade_unix_time"`
+	CirculatingSupply          float64 `json:"circulating_supply" bson:"circulating_supply"`
+	TotalSupply                float64 `json:"total_supply" bson:"total_supply"`
+	FDV                        float64 `json:"fdv" bson:"fdv"`
+	MarketCap                  float64 `json:"marketcap" bson:"marketcap"`
+	Liquidity                  float64 `json:"liquidity" bson:"liquidity"`
+	Volume30mUSD               float64 `json:"volume_30m_usd" bson:"volume_30m_usd"`
+	Volume30m                  float64 `json:"volume_30m" bson:"volume_30m"`
+	VolumeBuy30m               float64 `json:"volume_buy_30m" bson:"volume_buy_30m"`
+	VolumeBuy30mUSD            float64 `json:"volume_buy_30m_usd" bson:"volume_buy_30m_usd"`
+	VolumeSell30m              float64 `json:"volume_sell_30m" bson:"volume_sell_30m"`
+	VolumeSell30mUSD           float64 `json:"volume_sell_30m_usd" bson:"volume_sell_30m_usd"`
+	Trade30m                   int64   `json:"trade_30m" bson:"trade_30m"`
+	Buy30m                     int64   `json:"buy_30m" bson:"buy_30m"`
+	Sell30m                    int64   `json:"sell_30m" bson:"sell_30m"`
+	VolumeHistory30m           float64 `json:"volume_history_30m" bson:"volume_history_30m"`
+	VolumeHistory30mUSD        float64 `json:"volume_history_30m_usd" bson:"volume_history_30m_usd"`
+	VolumeSellHistory30mUSD    float64 `json:"volume_sell_history_30m_usd" bson:"volume_sell_history_30m_usd"`
+	VolumeBuyHistory30mUSD     float64 `json:"volume_buy_history_30m_usd" bson:"volume_buy_history_30m_usd"`
+	PriceChange30mPercent      float64 `json:"price_change_30m_percent" bson:"price_change_30m_percent"`
+	TradeHistory30m            int64   `json:"trade_history_30m" bson:"trade_history_30m"`
+	BuyHistory30m              int64   `json:"buy_history_30m" bson:"buy_history_30m"`
+	SellHistory30m             int64   `json:"sell_history_30m" bson:"sell_history_30m"`
+	Trade30mChangePercent      float64 `json:"trade_30m_change_percent" bson:"trade_30m_change_percent"`
+	Buy30mChangePercent        float64 `json:"buy_30m_change_percent" bson:"buy_30m_change_percent"`
+	Sell30mChangePercent       float64 `json:"sell_30m_change_percent" bson:"sell_30m_change_percent"`
+	Volume30mChangePercent     float64 `json:"volume_30m_change_percent" bson:"volume_30m_change_percent"`
+	VolumeBuy30mChangePercent  float64 `json:"volume_buy_30m_change_percent" bson:"volume_buy_30m_change_percent"`
+	VolumeSell30mChangePercent float64 `json:"volume_sell_30m_change_percent" bson:"volume_sell_30m_change_percent"`
+	UniqueWallet30m            int64   `json:"unique_wallet_30m" bson:"unique_wallet_30m"`
 }
 
 // ============================================================================
@@ -623,7 +624,7 @@ func (c *WSClient) Connect(ctx context.Context) error {
 }
 
 // readMessages reads messages from WebSocket
-func (c *WSClient) Read() (dataType WsDataType, data json.RawMessage, err error) {
+func (c *WSClient) Read() (data WsData, err error) {
 	c.mu.RLock()
 	conn := c.conn
 	c.mu.RUnlock()
@@ -632,19 +633,53 @@ func (c *WSClient) Read() (dataType WsDataType, data json.RawMessage, err error)
 		return
 	}
 
-	_, message, err := conn.ReadMessage()
+	mt, message, err := conn.ReadMessage()
 	if err != nil {
 		err = fmt.Errorf("birdeye: failed to read ws message: %w", err)
 		return
 	}
 
-	var wsData WsData
-	if err = json.Unmarshal(message, &wsData); err != nil {
+	switch mt {
+	case websocket.TextMessage:
+	case websocket.BinaryMessage:
+		// should not happen
+		slog.Warn("birdeye: binary message")
+		data = WsData{
+			Data: message,
+		}
+		return
+	case websocket.PingMessage:
+		// should not happen
+		slog.Warn("birdeye: ping message")
+		data = WsData{
+			Data: message,
+		}
+		return
+	case websocket.PongMessage:
+		// should not happen
+		slog.Warn("birdeye: pong message")
+		data = WsData{
+			Data: message,
+		}
+		return
+	case websocket.CloseMessage:
+		// should not happen
+		err = fmt.Errorf("birdeye: closed message")
+		data = WsData{
+			Data: message,
+		}
+		return
+	default:
+		err = fmt.Errorf("birdeye: unknown message type: %d", mt)
+		return
+	}
+
+	if err = json.Unmarshal(message, &data); err != nil {
 		err = fmt.Errorf("birdeye: failed to unmarshal ws message: %w", err)
 		return
 	}
 
-	return wsData.Type, wsData.Data, nil
+	return data, nil
 }
 
 // Send sends a message through WebSocket

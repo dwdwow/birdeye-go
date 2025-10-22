@@ -586,7 +586,9 @@ func TestWSClient_Read(t *testing.T) {
 	client.mu.Unlock()
 
 	// Read welcome message
-	msgType, data, err := client.Read()
+	wsData, err := client.Read()
+	msgType := wsData.Type
+	data := wsData.Data
 	if err != nil {
 		t.Fatalf("Read() error = %v", err)
 	}
@@ -603,7 +605,9 @@ func TestWSClient_Read(t *testing.T) {
 	}
 
 	// Read price data
-	msgType, data, err = client.Read()
+	wsData, err = client.Read()
+	msgType = wsData.Type
+	data = wsData.Data
 	if err != nil {
 		t.Fatalf("Read() error = %v", err)
 	}
@@ -629,7 +633,9 @@ func TestWSClient_Read_NilConnection(t *testing.T) {
 		Chain:  ChainSolana,
 	})
 
-	msgType, data, err := client.Read()
+	wsData, err := client.Read()
+	msgType := wsData.Type
+	data := wsData.Data
 	if err != nil {
 		t.Errorf("Read() with nil connection should not error, got: %v", err)
 	}
@@ -813,7 +819,8 @@ func TestWSClient_ConcurrentReadWrite(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < messageCount; i++ {
-			_, data, err := client.Read()
+			wsData, err := client.Read()
+			data := wsData.Data
 			if err != nil {
 				t.Logf("Read error: %v", err)
 				return
@@ -898,7 +905,9 @@ func TestWSClient_SubscribeAndReceivePriceData(t *testing.T) {
 	// Read price updates
 	prices := make([]float64, 0, 3)
 	for i := 0; i < 3; i++ {
-		msgType, data, err := client.Read()
+		wsData, err := client.Read()
+		msgType := wsData.Type
+		data := wsData.Data
 		if err != nil {
 			t.Fatalf("Read error: %v", err)
 		}
@@ -955,7 +964,8 @@ func TestRealWsClient(t *testing.T) {
 	}
 	defer client.Close()
 
-	msgType, _, err := client.Read()
+	wsData, err := client.Read()
+	msgType := wsData.Type
 	if err != nil {
 		t.Fatalf("Read error: %v", err)
 	}
@@ -973,7 +983,9 @@ func TestRealWsClient(t *testing.T) {
 		t.Fatalf("Subscribe error: %v", err)
 	}
 
-	msgType, data, err := client.Read()
+	wsData, err = client.Read()
+	msgType = wsData.Type
+	data := wsData.Data
 	if err != nil {
 		t.Fatalf("Read error: %v", err)
 	}
