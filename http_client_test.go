@@ -1033,12 +1033,25 @@ func TestGetRecentTxs(t *testing.T) {
 	client := getTestClient(t)
 	ctx := context.Background()
 
+	now := time.Now().Unix()
+	before := now - 10
+
 	txs, err := client.GetRecentTxs(ctx, &RecentTxsV3Options{
-		Limit: 10,
+		// Limit:      10,
+		AfterTime:  before,
+		BeforeTime: now,
 	})
 	if err != nil {
 		t.Fatalf("GetRecentTxs failed: %v", err)
 	}
 
 	t.Logf("Retrieved %d recent transactions, HasNext: %v", len(txs.Items), txs.HasNext)
+
+	for _, tx := range txs.Items {
+		if tx.BlockUnixTime < before {
+			t.Logf("Tx: %+v", tx)
+		} else if tx.BlockUnixTime > now {
+			t.Logf("Tx: %+v", tx)
+		}
+	}
 }

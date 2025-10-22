@@ -5749,10 +5749,6 @@ type RecentTxsV3Options struct {
 	BeforeTime int64 `default:"0"`
 	// AfterTime filters transactions after this Unix timestamp. Default: 0 (no filter)
 	AfterTime int64 `default:"0"`
-	// BeforeBlockNumber filters transactions before this block number. Default: 0 (no filter)
-	BeforeBlockNumber int64 `default:"0"`
-	// AfterBlockNumber filters transactions after this block number. Default: 0 (no filter)
-	AfterBlockNumber int64 `default:"0"`
 	// UIAmountMode specifies the token amount display mode. Options: "raw", "scaled", "both". Default: "raw"
 	UIAmountMode string `default:"raw"`
 	// Chains is the list of blockchain networks to query. Default: nil
@@ -5807,12 +5803,6 @@ func (c *HTTPClient) GetRecentTxs(ctx context.Context, opts *RecentTxsV3Options)
 	}
 	if opts.AfterTime > 0 {
 		params["after_time"] = opts.AfterTime
-	}
-	if opts.BeforeBlockNumber > 0 {
-		params["before_block_number"] = opts.BeforeBlockNumber
-	}
-	if opts.AfterBlockNumber > 0 {
-		params["after_block_number"] = opts.AfterBlockNumber
 	}
 
 	result, err := c.request(ctx, EndpointDefiV3Txs, requestOptions{
