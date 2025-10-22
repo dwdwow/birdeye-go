@@ -3,6 +3,7 @@ package birdeye
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -163,6 +164,9 @@ func (s *SubDataTxs) Query() string {
 
 // Payload returns the JSON payload for subscription
 func (s *SubDataTxs) Payload() ([]byte, error) {
+	if s.Address == nil && s.PairAddress == nil {
+		return nil, errors.New("birdeye: either address or pairAddress must be provided")
+	}
 	msg := map[string]any{
 		"type": SubscribeTxs,
 		"data": s,
