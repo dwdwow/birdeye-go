@@ -372,7 +372,7 @@ type RespRecentTxsItemV3 struct {
 // RespRecentTxsV3 represents the response for recent transactions V3
 type RespRecentTxsV3 struct {
 	Items   []RespRecentTxsItemV3 `json:"items" bson:"items"`
-	HasNext bool                  `json:"hasNext" bson:"hasNext"`
+	HasNext bool                  `json:"has_next" bson:"has_next"`
 }
 
 // ============================================================================
